@@ -92,3 +92,5 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .pin-alert{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px;margin-bottom:16px;border:1px solid #e9b6ad;border-radius:12px;background:#fff0ed;color:#8b2c23}
 .pin-alert div{flex:1 1 240px}
 .pin-alert p{margin:4px 0}
+
+.product-card.without-photo{min-height:110px;align-self:start}

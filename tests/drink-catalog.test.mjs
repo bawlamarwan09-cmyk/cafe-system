@@ -11,7 +11,7 @@ test('catalog photos are real bundled WebP files and drinks use one separate sto
  t.after(()=>{store.close();rmSync(dir,{recursive:true,force:true});});
  const manager=store.session(store.login('manager','2026')),cashier=store.session(store.login('caisse','1234'));
  let state=store.state(manager);
- assert.equal(state.products.length,28);
+ assert.equal(state.products.length,110);
  for(const item of drinkCatalog){
   const photo=readFileSync(new URL('../public'+item.image_path,import.meta.url));
   assert.equal(photo.toString('ascii',0,4),'RIFF');assert.equal(photo.toString('ascii',8,12),'WEBP');
@@ -34,10 +34,10 @@ test('catalog migration preserves legacy prices, quantities and recipes, and sur
  t.after(()=>{store.close();rmSync(dir,{recursive:true,force:true});});
  store.db.exec("DELETE FROM products WHERE id>10;DELETE FROM inventory WHERE id>8;DELETE FROM catalog_migrations;UPDATE products SET catalog_key=NULL,image_path=NULL;UPDATE products SET name='Coca-Cola',category='Boissons',price=1300,recipe='{\"3\":1}' WHERE id=7;UPDATE inventory SET quantity=17 WHERE id=3");
  store.close();store=openStore(path);let manager=store.session(store.login('manager','2026')),state=store.state(manager);
- const coke=state.products.find(p=>p.id===7);assert.equal(coke.price,1300);assert.equal(coke.category,'Sodas');assert.equal(coke.image_path,'/products/coca-cola.webp');assert.equal(state.inventory.find(i=>i.id===3).quantity,17);assert.deepEqual(coke.recipe,{'3':1});
+ const coke=state.products.find(p=>p.id===7);assert.equal(coke.price,1300);assert.equal(coke.category,'Soda');assert.equal(coke.image_path,'/products/coca-cola.webp');assert.equal(state.inventory.find(i=>i.id===3).quantity,17);assert.deepEqual(coke.recipe,{'3':1});
  store.action(manager,'product',{...coke,name:'Coca maison',category:'Spécial',price:14});
  store.close();store=openStore(path);manager=store.session(store.login('manager','2026'));state=store.state(manager);
- assert.equal(state.products.length,28);assert.equal(state.products.find(p=>p.id===7).name,'Coca maison');assert.equal(state.products.find(p=>p.id===7).price,1400);assert.equal(state.products.find(p=>p.id===7).category,'Spécial');assert.equal(state.inventory.find(i=>i.id===3).quantity,17);
+ assert.equal(state.products.length,110);assert.equal(state.products.find(p=>p.id===7).name,'Coca maison');assert.equal(state.products.find(p=>p.id===7).price,1400);assert.equal(state.products.find(p=>p.id===7).category,'Spécial');assert.equal(state.inventory.find(i=>i.id===3).quantity,17);
  assert.throws(()=>store.action(manager,'product',{...coke,price:13,image_path:'https://example.com/tracker.png'}),/Photo/);
 });
 
@@ -69,10 +69,10 @@ test('fresh juice sales are always available without a sack or fruit stock, whil
  t.after(()=>{store.close();rmSync(dir,{recursive:true,force:true});});
  const manager=store.session(store.login('manager','2026')),cashier=store.session(store.login('caisse','1234'));
  store.db.exec("UPDATE inventory SET quantity=0");
- let state=store.state(cashier);const juices=state.products.filter(p=>p.category==='Jus');assert.equal(juices.length,6);assert.ok(juices.every(p=>p.available));assert.equal(state.coffeeReady,false);
+ let state=store.state(cashier);const juices=state.products.filter(p=>p.category==='Boissons fraîches'&&p.stock_tracked===false);assert.equal(juices.length,25);assert.ok(juices.every(p=>p.available));assert.equal(state.coffeeReady,false);
  const before=store.state(manager).inventory.map(i=>[i.id,i.quantity]);
  const sale=store.action(cashier,'order',{key:'free-juices',payment:'cash',lines:juices.map(p=>({id:p.id,qty:2}))});
- state=store.state(manager);assert.equal(state.orders[0].total,18000);assert.equal(state.orders[0].equivalents,0);assert.equal(state.orders[0].sack_id,null);assert.equal(state.stockMoves.length,0);assert.deepEqual(state.inventory.map(i=>[i.id,i.quantity]),before);
+ state=store.state(manager);assert.equal(state.orders[0].total,2*juices.reduce((sum,juice)=>sum+juice.price,0));assert.equal(state.orders[0].equivalents,0);assert.equal(state.orders[0].sack_id,null);assert.equal(state.stockMoves.length,0);assert.deepEqual(state.inventory.map(i=>[i.id,i.quantity]),before);
  store.action(manager,'cancel',{id:sale.id,reason:'Erreur de commande'});assert.deepEqual(store.state(manager).inventory.map(i=>[i.id,i.quantity]),before);
  for(const key of ['coca-cola','cappy-orange']){const bottled=state.products.find(p=>p.catalog_key===key);assert.equal(bottled.available,false);assert.throws(()=>store.action(cashier,'order',{key,payment:'cash',lines:[{id:bottled.id,qty:1}]}),/Stock insuffisant/);}
 });
