@@ -16,12 +16,15 @@ test('all four management panels render for managers and are absent for cashiers
  const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  async function render(username,pin,language='fr',view='dashboard',modal=null){const data=(await store.state((await store.session((await store.login(username,pin))))));let index=0;const module={exports:{}};const hooks={...React,useEffect:()=>{},useMemo:f=>f(),useState:initial=>{const n=index++;return [n===0?data:n===1?false:n===3?view:n===4?data.today:n===10?modal:initial,()=>{}];}};Function('require','module','exports',js)(p=>p==='react'?hooks:p==='../components/sack-performance-chart'?chartModule.exports:require(p),module,module.exports);return renderToStaticMarkup(React.createElement(LanguageContext.Provider,{value:{language,setLanguage:()=>{}}},React.createElement(module.exports.default))); }
  const manager=await render('manager','2026'),cashier=await render('caisse','1234');
- for(const title of ['La semaine en un regard','Khncha en cours','À surveiller','Bilan du mois','Dépenses du jour']){assert.ok(manager.includes(title),`manager: ${title}`);assert.ok(!cashier.includes(title),`cashier: ${title}`);}
+ for(const title of ['Alerte de stock','Rupture de stock','La semaine en un regard','Khncha en cours','À surveiller','Bilan du mois','Dépenses du jour']){assert.ok(manager.includes(title),`manager: ${title}`);assert.ok(!cashier.includes(title),`cashier: ${title}`);}
  for(const title of ['Ventes du jour','En espèces','Reste du jour','Dernières ventes'])assert.ok(cashier.includes(title),`retained: ${title}`);
+ assert.match(manager, /<dialog[^>]*stock-alert-dialog/);
+ assert.match(manager, />OK<\/button>/);
+ assert.doesNotMatch(cashier, /stock-alert-dialog/);
  assert.match(cashier,/cashier-dashboard/);
  assert.ok(!manager.includes('Crédit clients'));assert.ok(!cashier.includes('Crédit du jour'));
  const arabicManager=await render('manager','2026','ar'),arabicCashier=await render('caisse','1234','ar');
- for(const title of ['نظرة على الأسبوع','الخنشة المفتوحة','خاص المراقبة','حصيلة الشهر','مصاريف النهار']){assert.ok(arabicManager.includes(title),`Arabic manager: ${title}`);assert.ok(!arabicCashier.includes(title),`Arabic cashier: ${title}`);}
+ for(const title of ['تنبيه المخزون','المخزون سالا','نظرة على الأسبوع','الخنشة المفتوحة','خاص المراقبة','حصيلة الشهر','مصاريف النهار']){assert.ok(arabicManager.includes(title),`Arabic manager: ${title}`);assert.ok(!arabicCashier.includes(title),`Arabic cashier: ${title}`);}
  for(const title of ['مبيعات النهار','نقداً','الباقي ديال النهار','آخر المبيعات'])assert.ok(arabicCashier.includes(title),`Arabic retained: ${title}`);
  assert.ok(arabicCashier.includes('العربية'));assert.ok(arabicCashier.includes('FR'));
  const pos=await render('caisse','1234','ar','pos');assert.ok(pos.includes('الطلب الحالي'));assert.ok(pos.includes('تأكيد الطلب'));assert.ok(pos.includes('قهوة كحلة'));assert.ok(!pos.includes('كريدي'));assert.ok(!pos.includes('value="credit"'));

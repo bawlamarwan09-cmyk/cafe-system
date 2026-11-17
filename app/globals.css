@@ -92,5 +92,9 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .pin-alert{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px;margin-bottom:16px;border:1px solid #e9b6ad;border-radius:12px;background:#fff0ed;color:#8b2c23}
 .pin-alert div{flex:1 1 240px}
 .pin-alert p{margin:4px 0}
+.stock-alert-dialog{border:0;margin:auto}
+.stock-alert-dialog::backdrop{background:#362b1850}
+.stock-alert-list{list-style:none;padding:0;margin:6px 0 0;max-height:12rem;overflow:auto}
+.stock-alert-list li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:6px 0}
 
 .product-card.without-photo{min-height:110px;align-self:start}
