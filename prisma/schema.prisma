@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+model cafes {
+  id Int @id @default(autoincrement())
+  name String
+}
+
+model users {
+  id Int @id @default(autoincrement())
+  cafe_id Int
+  name String?
+  username String? @unique
+  pin String?
+  role String?
+}
+
+model sessions {
+  token String @id
+  user_id Int?
+  expires BigInt?
+}
+
+model attempts {
+  key String @id
+  count Int?
+  reset BigInt?
+}
+
+model inventory {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  name String?
+  unit String?
+  quantity Float?
+  threshold Float?
+  cost Int?
+  archived Int @default(0)
+}
+
+model products {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  name String?
+  category String?
+  price Int?
+  equivalent Float?
+  recipe String?
+  active Int? @default(1)
+  image_path String?
+  catalog_key String?
+}
+
+model sacks {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  opened String?
+  closed String?
+  opened_by String?
+  closed_by String?
+  equivalents Float? @default(0)
+  status String?
+  reason String?
+  weight_kg Float @default(1)
+  barista_id Int?
+  barista_name String?
+}
+
+model customers {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  name String?
+  phone String?
+}
+
+model orders {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  created String?
+  date String?
+  user_name String?
+  lines String?
+  total BigInt?
+  payment String?
+  customer_id Int?
+  sack_id Int?
+  equivalents Float?
+  status String? @default("confirmed")
+  request_key String? @unique
+  cancel_reason String?
+  revision Int @default(0)
+  waiter_id Int?
+}
+
+model movements {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  date String?
+  kind String?
+  category String?
+  label String?
+  amount Int?
+  payment String?
+  customer_id Int?
+  employee_id Int?
+  inventory_id Int?
+  quantity Float?
+  user_name String?
+  created String?
+}
+
+model stock_moves {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  inventory_id Int?
+  quantity Float?
+  reason String?
+  order_id Int?
+  created String?
+}
+
+model employees {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  name String?
+  role String?
+  wage Int?
+}
+
+model workdays {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  employee_id Int?
+  date String?
+  wage Int?
+  @@unique([cafe_id, employee_id, date])
+}
+
+model closings {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  date String?
+  opening BigInt?
+  counted BigInt?
+  expected BigInt?
+  user_name String?
+  created String?
+  @@unique([cafe_id, date])
+}
+
+model catalog_migrations {
+  cafe_id Int
+  version Int
+  @@id([cafe_id, version])
+}
+
+model order_events {
+  id Int @id @default(autoincrement())
+  cafe_id Int?
+  order_id Int?
+  kind String?
+  reason String?
+  user_name String?
+  created String?
+  before_json String?
+  after_json String?
+}
+
+model employee_order_pins {
+  cafe_id Int
+  employee_id Int
+  salt String
+  pin_hash String
+  @@id([cafe_id, employee_id])
+}
+
+model order_pin_locks {
+  cafe_id Int
+  employee_id Int
+  reported_at String
+  terminal_user String
+  @@id([cafe_id, employee_id])
+}

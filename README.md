@@ -1,13 +1,14 @@
 # cafe-system
 
-Application locale de gestion de café, avec une interface crème, blanche et or. Le catalogue et le stock initiaux sont des exemples ; aucune vente ou dépense historique n'est importée depuis Excel.
+Application de gestion de café, avec une interface crème, blanche et or. Le catalogue et le stock initiaux sont des exemples ; aucune vente ou dépense historique n'est importée depuis Excel.
 
 ## Démarrer sur Mac
 
-Node.js 22.13 ou plus récent est requis pour `node:sqlite`.
+Node.js 22.13 ou plus récent et une base PostgreSQL sont nécessaires. Dans `.env`, configurez `DATABASE_URL` avec la chaîne de connexion PostgreSQL.
 
 ```sh
-npm install
+npm ci
+npm run db:migrate
 npm run dev
 ```
 
@@ -38,7 +39,7 @@ Pour une base neuve, définir `MONALISA_MANAGER_PIN` et `MONALISA_CASHIER_PIN` d
 
 ## Règles de gestion
 
-- Les montants sont stockés en centimes entiers. Transactions SQLite pour commande, stock et khncha ; clé de requête unique pour éviter la double vente en cas de nouvelle tentative.
+- Les montants sont stockés en centimes entiers. Transactions PostgreSQL via Prisma pour commande, stock et khncha ; clé de requête unique pour éviter la double vente en cas de nouvelle tentative.
 - Confirmation = vente enregistrée et stock consommé. Le paiement est explicitement espèces ou carte ; les nouvelles ventes à crédit et les remboursements de crédit sont refusés par le serveur.
 - Café noir : 1 équivalent ; café au lait : 0,5 ; double : 2. Recettes et prix modifiables dans Paramètres. Les recettes d'exemple de sucre, lait et thé sont à valider avec le café.
 - Une seule khncha active par café, ouverte et clôturée par le manager. Elle couvre plusieurs jours. Chaque nouvelle khncha contient 1 kg : la référence est de 65 équivalents. Un lot d’achat de 6 kg contient 6 khnchas de 1 kg. Le poids restant est une estimation, jamais une mesure physique. Une clôture anticipée n'affiche pas de rendement final.
@@ -52,15 +53,42 @@ Pour une base neuve, définir `MONALISA_MANAGER_PIN` et `MONALISA_CASHIER_PIN` d
 
 ## Données et sauvegarde
 
-Les données sont persistées dans `data/monalisa.sqlite`, indépendamment du navigateur. Le chemin peut être configuré par `MONALISA_DB`. Pour une copie cohérente pendant l'activité, utiliser la commande SQLite `VACUUM INTO` ou l'API backup SQLite ; ne pas copier uniquement le fichier principal pendant que WAL est actif. À la première ouverture d’une ancienne base, le stock fermé de café et ses quantités historiques sont convertis de sacs de 6 kg en unités de 1 kg (×6), une seule fois. Le poids des khnchas déjà ouvertes ou clôturées reste 6 kg pour conserver les calculs historiques ; toute nouvelle ouverture est de 1 kg.
+Les données sont persistées dans PostgreSQL. Gardez `DATABASE_URL` sur le backend et sauvegardez la base avec `pg_dump`.
 
-Pour une sauvegarde manuelle simple : arrêter le serveur puis copier le dossier `data/` complet.
+### Importer les ventes et le stock SQLite existants
+
+1. Arrêtez la saisie sur l'ancienne caisse au moment du transfert. Sur le Mac, créez un fichier de sauvegarde SQLite cohérent.
+
+   ```sh
+   sqlite3 -readonly data/monalisa.sqlite ".backup /tmp/monalisa-backup.sqlite"
+   ```
+
+2. Transférez cette sauvegarde vers le VPS par SCP. Exécutez `npm run db:migrate` sur une base PostgreSQL dédiée et vide. Configurez `MONALISA_MANAGER_PIN` et `MONALISA_CASHIER_PIN` avec deux codes distincts de 8 à 12 chiffres dans le fichier privé `.env` du backend.
+3. Avant le premier démarrage de l'application, lancez `npm run db:import -- /chemin/prive/monalisa-backup.sqlite`. L'import conserve les identifiants, ventes, produits, stocks et mouvements. Il renouvelle les codes des comptes `manager` et `caisse` et laisse les anciennes sessions expirer en demandant une nouvelle connexion. Les anciens sacs historiques gardent leur poids de 6 kg quand le champ de poids était absent. Le stock de ces anciennes bases est converti en unités de 1 kg.
+4. Vérifiez les quantités et les totaux sur PostgreSQL avant de basculer les terminaux.
+
+## Déploiement VPS et Vercel
+
+Sur le VPS, installez les dépendances, appliquez les migrations, importez la sauvegarde si nécessaire, puis compilez et démarrez le backend.
+
+```sh
+npm ci
+npm run db:migrate
+npm run build
+npm start -- --hostname 127.0.0.1
+```
+
+Exécutez le service sous un utilisateur dédié. Configurez le reverse proxy du VPS pour publier le port 3007 sur un domaine HTTPS, par exemple `https://api-cafe.example.com`. Si 3007 est déjà pris, choisissez un port libre avec `npx next start -p PORT --hostname 127.0.0.1`. Gardez PostgreSQL accessible uniquement depuis le backend.
+
+- **VPS** · Définissez `DATABASE_URL`, les deux PIN de production pour une installation neuve, et `MONALISA_ORIGIN=https://cafe.example.com` (l'origine publique de Vercel, sans slash final). Laissez `MONALISA_API_ORIGIN` absent.
+- **Vercel** · Importez le même dépôt Next.js. Définissez uniquement `MONALISA_API_ORIGIN=https://api-cafe.example.com` pour le routage de l'API et redéployez. La réécriture envoie `/api/*` vers le VPS tout en gardant la session sur le domaine de la caisse.
+- Vérifiez depuis Vercel la connexion, une vente de test, le stock, et l'impression sur le terminal. L'interface affiche uniquement des codes numériques en cas d'erreur.
 
 ## État et limites
 
-Version de développement locale. Next.js / React / TypeScript, API Node et SQLite. Le navigateur se connecte au serveur pour chaque opération : aucun fonctionnement offline avec synchronisation n'est inclus.
+Next.js / React / TypeScript, API Node et PostgreSQL via Prisma. Le navigateur se connecte au serveur pour chaque opération : aucun fonctionnement offline avec synchronisation n'est inclus.
 
-Avant utilisation en production : migrer vers PostgreSQL/Prisma selon l'hébergement retenu, remplacer les comptes de démonstration, durcir la gestion des identifiants, configurer HTTPS, accès distant, sauvegardes et supervision. Les anciens enregistrements liés au crédit sont conservés pour ne pas modifier l’historique ; aucune nouvelle opération de crédit n’est possible. Les éventuels soldes antérieurs restent inclus comme ajustement historique dans le bilan. Le dashboard caissier masque la vue hebdomadaire, le suivi de khncha, les alertes stock et le bilan mensuel. Les détails de stock, recettes, khnchas, employés et clôtures sont exclus de sa réponse API ; seules les sommes des mouvements du jour consulté sont transmises pour préserver les cartes quotidiennes. Le manager conserve le suivi complet.
+Avant utilisation en production : remplacer les comptes de démonstration, durcir la gestion des identifiants, configurer HTTPS, accès distant, sauvegardes et supervision. Les anciens enregistrements liés au crédit sont conservés pour ne pas modifier l’historique ; aucune nouvelle opération de crédit n’est possible. Les éventuels soldes antérieurs restent inclus comme ajustement historique dans le bilan. Le dashboard caissier masque la vue hebdomadaire, le suivi de khncha, les alertes stock et le bilan mensuel. Les détails de stock, recettes, khnchas, employés et clôtures sont exclus de sa réponse API ; seules les sommes des mouvements du jour consulté sont transmises pour préserver les cartes quotidiennes. Le manager conserve le suivi complet.
 
 L'impression actuelle utilise le dialogue du navigateur, avec deux copies sur deux pages 80 mm. Pas encore de pilote ESC/POS, file d'impression matérielle, confirmation de livraison ni reprise automatique sur panne imprimante. Il faut sélectionner Windows/Android et le modèle de l'imprimante avant cette intégration. Les boîtes de dialogue peuvent varier selon le navigateur.
 
