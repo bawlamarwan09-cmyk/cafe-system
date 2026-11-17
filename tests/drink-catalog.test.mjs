@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 
 import {drinkCatalog} from '../lib/drink-catalog.mjs';
 
-test('catalog photos are real bundled WebP files and drinks use one separate stock unit',async t=>{
+test('catalog photos are real bundled WebP files and only selected bottled drinks use stock',async t=>{
  const store=await testStore(t);
 
  const manager=(await store.session((await store.login('manager','2026')))),cashier=(await store.session((await store.login('caisse','1234'))));
@@ -16,14 +16,26 @@ test('catalog photos are real bundled WebP files and drinks use one separate sto
   const photo=readFileSync(new URL('../public'+item.image_path,import.meta.url));
   assert.equal(photo.toString('ascii',0,4),'RIFF');assert.equal(photo.toString('ascii',8,12),'WEBP');
   const product=state.products.find(p=>p.catalog_key===item.key);assert.ok(product,item.name);assert.equal(product.image_path,item.image_path);
-  assert.equal(product.equivalent,0);assert.equal(Object.values(product.recipe)[0],1);assert.equal(Object.keys(product.recipe).length,1);
+  assert.equal(product.equivalent,0);
+  if(!['coca-cola','hawai-tropical','sprite','poms','schweppes-tonic','schweppes-citron'].includes(item.key)){
+   assert.equal(product.available,true);
+   assert.equal(product.stock_tracked,false);
+   assert.deepEqual(product.recipe,{});
+   continue;
+  }
+  assert.equal(Object.values(product.recipe)[0],1);assert.equal(Object.keys(product.recipe).length,1);
   if(!['coca-cola','hawai-tropical'].includes(item.key)){assert.equal(product.available,false);assert.equal(state.inventory.find(i=>i.id===Number(Object.keys(product.recipe)[0])).quantity,0);}
  }
- const fanta=state.products.find(p=>p.catalog_key==='fanta-orange'),inventoryId=Number(Object.keys(fanta.recipe)[0]);
- await assert.rejects(()=>store.action(cashier,'order',{key:'empty-fanta',payment:'cash',lines:[{id:fanta.id,qty:1}]}),/Stock insuffisant/);
- (await store.action(manager,'movement',{kind:'purchase',inventory_id:inventoryId,quantity:12,amount:60,payment:'cash',label:'12 Fanta'}));
- assert.equal((await store.state(cashier)).products.find(p=>p.id===fanta.id).available,true);
- const sale=(await store.action(cashier,'order',{key:'fanta',payment:'cash',lines:[{id:fanta.id,qty:2}]}));
+ const water=state.products.find(p=>p.catalog_key==='aquafina');
+ assert.equal(water.name,'Aquafina');assert.deepEqual(water.recipe,{'2':1});
+ const fanta=state.products.find(p=>p.catalog_key==='fanta-orange'),fantaStock=state.inventory.find(i=>i.name==='Fanta Orange');
+ await store.action(manager,'inventory-delete',{id:fantaStock.id});
+ await store.action(cashier,'order',{key:'without-stock',payment:'cash',lines:[{id:fanta.id,qty:1}]});
+ const sprite=state.products.find(p=>p.catalog_key==='sprite'),inventoryId=Number(Object.keys(sprite.recipe)[0]);
+ await assert.rejects(()=>store.action(cashier,'order',{key:'empty-sprite',payment:'cash',lines:[{id:sprite.id,qty:1}]}),/Stock insuffisant/);
+ (await store.action(manager,'movement',{kind:'purchase',inventory_id:inventoryId,quantity:12,amount:60,payment:'cash',label:'12 Sprite'}));
+ assert.equal((await store.state(cashier)).products.find(p=>p.id===sprite.id).available,true);
+ const sale=(await store.action(cashier,'order',{key:'sprite',payment:'cash',lines:[{id:sprite.id,qty:2}]}));
  state=(await store.state(manager));assert.equal(state.inventory.find(i=>i.id===inventoryId).quantity,10);assert.equal(state.orders[0].total,2000);
  (await store.action(manager,'cancel',{id:sale.id,reason:'Erreur de saisie'}));assert.equal((await store.state(manager)).inventory.find(i=>i.id===inventoryId).quantity,12);
  assert.equal((await store.state(cashier)).inventory.length,0);
@@ -64,17 +76,17 @@ test('fresh juice illustrations identify each fruit and preserve the existing or
  assert.equal(art.size,6);
 });
 
-test('fresh juice sales are always available without a sack or fruit stock, while bottled drinks remain tracked',async t=>{
+test('untracked drinks are available without stock, while Coca-Cola and Aquafina still require stock',async t=>{
  const store=await testStore(t);
 
  const manager=(await store.session((await store.login('manager','2026')))),cashier=(await store.session((await store.login('caisse','1234'))));
  (await store.db.exec("UPDATE inventory SET quantity=0"));
- let state=(await store.state(cashier));const juices=state.products.filter(p=>p.category==='Boissons fraîches'&&p.stock_tracked===false);assert.equal(juices.length,25);assert.ok(juices.every(p=>p.available));assert.equal(state.coffeeReady,false);
+ let state=(await store.state(cashier));const juices=state.products.filter(p=>p.category==='Boissons fraîches'&&p.stock_tracked===false);assert.equal(juices.length,26);assert.ok(juices.every(p=>p.available));assert.equal(state.coffeeReady,false);
  const before=(await store.state(manager)).inventory.map(i=>[i.id,i.quantity]);
  const sale=(await store.action(cashier,'order',{key:'free-juices',payment:'cash',lines:juices.map(p=>({id:p.id,qty:2}))}));
  state=(await store.state(manager));assert.equal(state.orders[0].total,2*juices.reduce((sum,juice)=>sum+juice.price,0));assert.equal(state.orders[0].equivalents,0);assert.equal(state.orders[0].sack_id,null);assert.equal(state.stockMoves.length,0);assert.deepEqual(state.inventory.map(i=>[i.id,i.quantity]),before);
  (await store.action(manager,'cancel',{id:sale.id,reason:'Erreur de commande'}));assert.deepEqual((await store.state(manager)).inventory.map(i=>[i.id,i.quantity]),before);
- for(const key of ['coca-cola','cappy-orange']){const bottled=state.products.find(p=>p.catalog_key===key);assert.equal(bottled.available,false);await assert.rejects(()=>store.action(cashier,'order',{key,payment:'cash',lines:[{id:bottled.id,qty:1}]}),/Stock insuffisant/);}
+ for(const key of ['coca-cola','aquafina']){const bottled=state.products.find(p=>p.catalog_key===key);assert.equal(bottled.available,false);await assert.rejects(()=>store.action(cashier,'order',{key,payment:'cash',lines:[{id:bottled.id,qty:1}]}),/Stock insuffisant/);}
 });
 
 test('legacy juice portions leave active stock without erasing purchases or quantities',async t=>{
