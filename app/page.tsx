@@ -29,6 +29,45 @@ const nav = [['dashboard', 'Tableau de bord', LayoutDashboard], ['pos', 'Caisse 
 const orderPinLocked = '423';
 const errorNumber = (error: unknown) => error instanceof Error && /^\d{3}$/.test(error.message) ? error.message : '503';
 const kindName: Record<string, string> = { expense: 'Dépense', purchase: 'Achat', salary: 'Salaire', advance: 'Avance', repayment: 'Remboursement', withdrawal: 'Retrait', adjustment: 'Ajustement' };
+// Base64 adds a third to the file size. Leave space for the rest of the JSON request.
+const productPhotoBudget = 700 * 1024;
+
+async function productPhotoData(file: File) {
+    let photo: Blob = file;
+    if (file.size > productPhotoBudget) {
+        const url = URL.createObjectURL(file);
+        try {
+            const image = new Image();
+            image.src = url;
+            await image.decode();
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('400');
+            for (const limit of [768, 384]) {
+                const scale = Math.min(1, limit / Math.max(image.naturalWidth, image.naturalHeight));
+                canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+                canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                const compressed = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
+                if (compressed && compressed.size <= productPhotoBudget) {
+                    photo = compressed;
+                    break;
+                }
+            }
+            if (photo === file) throw new Error('413');
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(photo);
+    });
+}
 function ProductPicture({product}:{product:Row}) {
     const {t}=useTranslation();
     if (product.image_path) {
@@ -392,22 +431,18 @@ export default function App() {
                         delete body.photo;
                         const photo = f.photo;
                         if (photo instanceof File && photo.size) {
-                            if (photo.size > 1_048_576 || !['image/jpeg','image/png','image/webp'].includes(photo.type)) {
+                            if (!['image/jpeg','image/png','image/webp'].includes(photo.type)) {
                                 setError('400');
                                 return;
                             }
                             try {
-                                body.image_path = await new Promise<string>((resolve, reject) => {
-                                    const reader = new FileReader();
-                                    reader.onload = () => resolve(String(reader.result));
-                                    reader.onerror = () => reject(reader.error);
-                                    reader.readAsDataURL(photo);
-                                });
-                            } catch {
-                                setError('400');
+                                body.image_path = await productPhotoData(photo);
+                            } catch (error) {
+                                setError(errorNumber(error) === '413' ? '413' : '400');
                                 return;
                             }
                         }
+                        if (body.image_path === 'keep') delete body.image_path;
                         body.id = modal.product?.id;
                     }
                     if (type === 'sack-close' || type === 'sack-assign' || type === 'cancel')
@@ -436,8 +471,8 @@ export default function App() {
  </>}
  {t(modal.type === 'movement' && <>{t(['salary', 'advance'].includes(modal.kind) && <Field name="kind" title={t("Type de paiement")} value={modal.kind} options={[{ value: 'advance', label: 'Avance sur salaire' }, { value: 'salary', label: 'Règlement de salaire' }]}/>)}<Field name="date" title={t("Date")} type="date" value={date}/>{t(modal.kind === 'expense' && <Field name="category" title={t("Cat\u00E9gorie")} options={['Dépenses du jour', 'Loyer', 'Électricité', 'Eau', 'Internet / abonnement', 'Nettoyage', 'Réparation', 'Autre'].map(x => ({ value: x, label: x }))}/>)}<Field name="label" title={t(modal.kind === 'purchase' ? 'Fournisseur / description de l’achat' : 'Description / motif')}/>{t(['purchase', 'adjustment'].includes(modal.kind) && <><Field name="inventory_id" title={t("Article")} value={modal.inventory_id} options={inventoryOptions} onChange={e=>setModal(current=>({...current,inventory_id:Number(e.target.value),purchase_unit:'unit'}))}/><Field name="quantity" title={t('Quantité')} type="number" min="0.001" step="0.001"/>{t(modal.kind === 'adjustment' && <Field name="direction" title={t("Sens du mouvement")} value="out" options={[{ value: 'out', label: 'Sortie — perte / casse' }, { value: 'in', label: 'Entrée — correction' }]}/>)}</>)}{t(modal.kind !== 'adjustment' && <Field name="amount" title={t("Montant total (DH)")} type="number" min="0.01"/>)}{t(['salary', 'advance'].includes(modal.kind) && <><Field name="employee_id" title={t("Employ\u00E9")} value={modal.employee_id} options={employeeOptions}/><p className="micro-note">{t("Saisissez uniquement le montant r\u00E9ellement vers\u00E9. Les avances d\u00E9j\u00E0 pay\u00E9es ne doivent pas \u00EAtre incluses une deuxi\u00E8me fois.")}</p></>)} {modal.kind!=='purchase'&&<Field name="payment" title={t("Mode de paiement")} value="cash" options={paymentOptions}/>}</>)}
  {modal.type === 'product-delete' && <p>{t('Retirer ce produit du menu ? Les ventes déjà enregistrées sont conservées.')} <strong>{modal.product.name}</strong></p>}
- {t(modal.type === 'product' && <><div className="form-two"><Field name="name" title={t("Nom du produit")} value={modal.product?.name}/><Field name="category" title={t("Cat\u00E9gorie")} value={modal.product?.category || 'Boissons chaudes'}/><Field name="price" title={t("Prix de vente (DH)")} type="number" value={modal.product ? modal.product.price / 100 : undefined}/><Field name="equivalent" title={t("\u00C9quivalent caf\u00E9 (0 si aucun)")} type="number" value={modal.product?.equivalent || 0}/></div><Field name="image_path" title={t("Photo du produit")} required={false} value={modal.product?.image_path||''} options={[{value:'',label:'Illustration automatique'},
- ...(modal.product?.image_path?.startsWith('data:') ? [{value:modal.product.image_path,label:'Conserver la photo actuelle'}] : []),...[...catalogProducts,...coffeePhotos,...additionalMenuPhotos].map(p=>({value:p.image_path,label:p.name}))]}/>{modal.product?.image_path && <span className="cart-picture"><ProductPicture product={modal.product}/></span>}<label>{t('Importer une photo (JPG, PNG, WebP · 1 Mo max)')}<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"/></label></>)}
+ {t(modal.type === 'product' && <><div className="form-two"><Field name="name" title={t("Nom du produit")} value={modal.product?.name}/><Field name="category" title={t("Cat\u00E9gorie")} value={modal.product?.category || 'Boissons chaudes'}/><Field name="price" title={t("Prix de vente (DH)")} type="number" value={modal.product ? modal.product.price / 100 : undefined}/><Field name="equivalent" title={t("\u00C9quivalent caf\u00E9 (0 si aucun)")} type="number" value={modal.product?.equivalent || 0}/></div><Field name="image_path" title={t("Photo du produit")} required={false} value={modal.product?.image_path ? 'keep' : ''} options={[
+ ...(modal.product?.image_path ? [{value:'keep',label:'Conserver la photo actuelle'}] : []),{value:'',label:'Illustration automatique'},...[...catalogProducts,...coffeePhotos,...additionalMenuPhotos].map(p=>({value:p.image_path,label:p.name}))]}/>{modal.product?.image_path && <span className="cart-picture"><ProductPicture product={modal.product}/></span>}<label>{t('Importer une photo (JPG, PNG, WebP)')}<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"/></label></>)}
  {modal.type==='order-edit'&&<><p className="micro-note">{t('Correction du ticket')} #{modal.order.id} · {t('Les prix des lignes existantes sont conservés.')}</p><div className="edit-order-lines">{modal.lines.map((line:Row)=><div className="edit-order-line" key={line.id}>{line.image_path && <span className="cart-picture"><ProductPicture product={line}/></span>}<div><strong>{t(line.name)}</strong><small>{euro(line.price)}</small></div><label>{t('Quantité')}<input type="number" min="1" max="100" step="1" required value={line.qty} onChange={e=>{const qty=Number(e.target.value);setModal(current=>({...current,lines:current!.lines.map((l:Row)=>l.id===line.id?{...l,qty}:l)}));}}/></label><button type="button" className="icon-button danger" aria-label={t('Retirer un '+line.name)} onClick={()=>setModal(current=>({...current,lines:current!.lines.filter((l:Row)=>l.id!==line.id)}))}><Trash2 size={20}/></button></div>)}</div><label>{t('Ajouter un produit')}<select value="" onChange={e=>{const p=s.products.find(p=>p.id===Number(e.target.value));if(p)setModal(current=>({...current,lines:[...current!.lines,{...p,...current!.order.lines.find((l:Row)=>l.id===p.id),qty:1}]}));}}><option value="">{t('Choisir…')}</option>{s.products.filter(p=>!modal.lines.some((l:Row)=>l.id===p.id)).map(p=><option key={p.id} value={p.id}>{t(p.name)} · {euro(p.price)}</option>)}</select></label><Field name="payment" title={t('Mode de paiement')} value={modal.payment} options={[{value:'cash',label:'Espèces'},{value:'card',label:'Carte'}]} onChange={e=>setModal(current=>({...current,payment:e.target.value}))}/><div className="confirmation-total"><span>{t('Total')}</span><strong>{euro(modal.lines.reduce((total:number,l:Row)=>total+l.price*l.qty,0))}</strong></div><Field name="reason" title={t('Motif obligatoire')}/><p className="micro-note">{t('Le total, le stock et la khncha seront corrigés à l’enregistrement.')}</p></>}
  {modal.type==='sack-assign'&&<><Field name="barista_id" title={t('Barman responsable')} options={employeeOptions}/><p className="micro-note">{t('Cette attribution conserve les ventes et le stock de la khncha en cours.')}</p></>}
  {t(modal.type === 'sack-open' && <><Field name="barista_id" title={t("Barman responsable")} value={s.employees.find(e=>['barista','barman','محضر القهوة','بارمان'].includes(String(e.role).toLowerCase()))?.id} options={employeeOptions}/><div className="open-sack-art"><Wheat size={55} strokeWidth={1}/></div><p>{t("Une khncha de ")}<b>{t("1 kg")}</b>{t(" sera ouverte sous votre responsabilit\u00E9 et retir\u00E9e du stock de sacs ferm\u00E9s.")}</p><div className="inline-info">{t("R\u00E9f\u00E9rence : 65 \u00E9quivalents \u00B7 65 \u00E9quivalents / kg")}</div><p className="micro-note">{t("Elle reste active sur plusieurs jours, jusqu\u2019\u00E0 sa cl\u00F4ture par le manager.")}</p></>)}

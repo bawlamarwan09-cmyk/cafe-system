@@ -101,3 +101,19 @@ test('legacy juice portions leave active stock without erasing purchases or quan
  assert.equal(state.products.find(p=>p.id===juice.id).available,true);
  await assert.rejects(()=>store.action(manager,'movement',{kind:'purchase',inventory_id:item,quantity:1,amount:5,payment:'cash',label:'Retired'}),/stock actif/);
 });
+
+test('Aquafina accepts a replacement photo and keeps its stock recipe', async t => {
+ const store = await testStore(t);
+ const manager = await store.session(await store.login('manager', '2026'));
+ const water = (await store.state(manager)).products.find(p => p.catalog_key === 'aquafina');
+ const edit = { id:water.id, name:water.name, category:water.category, price:water.price / 100, equivalent:water.equivalent };
+ for (const filename of ['coca-cola.webp', 'sprite.webp']) {
+  const photo = readFileSync(new URL('../public/products/' + filename, import.meta.url));
+  const image_path = 'data:image/webp;base64,' + photo.toString('base64');
+  await store.action(manager, 'product', { ...edit, image_path });
+  await store.action(manager, 'product', edit);
+  const updated = (await store.state(manager)).products.find(p => p.id === water.id);
+  assert.equal(updated.image_path, image_path);
+  assert.deepEqual(updated.recipe, water.recipe);
+ }
+});
