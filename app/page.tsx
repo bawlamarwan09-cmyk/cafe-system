@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation, LanguageSwitcher } from '../lib/i18n.mjs';
-import { additionalMenuPhotos, catalogProducts, coffeePhotos } from '../lib/drink-catalog.mjs';
+import { additionalMenuPhotos, catalogProducts, coffeePhotos, stockBottleKeys } from '../lib/drink-catalog.mjs';
 import { monalisaCategories } from '../lib/monalisa-menu.mjs';
 import SackPerformanceChart from '../components/sack-performance-chart';
 import { sackPerformance, baristaPerformance } from '../lib/coffee-performance.mjs';
@@ -40,10 +40,9 @@ function ProductPicture({product}:{product:Row}) {
     }
     return null;
 }
-function StockAlert({inventory, paused}: {inventory: Row[]; paused: boolean}) {
+function StockAlert({low, paused}: {low: Row[]; paused: boolean}) {
     const {t, number} = useTranslation();
     const dialog = useRef<HTMLDialogElement>(null);
-    const low = useMemo(() => inventory.filter(item => item.quantity <= item.threshold), [inventory]);
     const [pending, setPending] = useState<Row[]>(low);
     const acknowledged = useRef(new Map<number, boolean>());
 
@@ -224,6 +223,15 @@ export default function App() {
     } };
     const metrics = useMemo(() => s ? totals(s, date) : null, [s, date]);
     const month = useMemo(() => s ? totals(s, date, true) : null, [s, date]);
+    const low = useMemo(() => {
+        if (!s || !manager) return [];
+        const trackedIds = new Set(s.products
+            .filter(product => stockBottleKeys.has(product.catalog_key))
+            .flatMap(product => Object.keys(product.recipe ?? {}).map(Number)));
+        const coffee = s.inventory.find(item => item.unit === 'sac');
+        if (coffee) trackedIds.add(coffee.id);
+        return s.inventory.filter(item => trackedIds.has(item.id) && item.quantity <= item.threshold);
+    }, [s, manager]);
     if (loading)
         return <div className="loading"><Brand /><LoaderCircle className="spin"/><p>{t("Ouverture de votre caf\u00E9\u2026")}</p></div>;
     if (!s)
@@ -237,7 +245,7 @@ export default function App() {
         finally {
             setBusy(false);
         } }}><label>{t("Identifiant")}<input name="username" placeholder={t("manager")} autoComplete="username" required/></label><label>{t("Code d\u2019acc\u00E8s")}<input name="pin" type="password" placeholder={t("\u2022\u2022\u2022\u2022")} autoComplete="current-password" required/></label>{t(loginError && <div className="form-error">{t(loginError)}</div>)}<button className="button gold full" disabled={busy}>{t(busy ? <LoaderCircle className="spin" size={18}/> : <>{t("Ouvrir mon espace ")}<ArrowUpRight size={17}/></>)}</button></form>{process.env.NODE_ENV !== 'production' && <div className="demo-note"><span className="dot"/>{t("Version locale de d\u00E9monstration")}<br /><span>{t("Manager : ")}<b>{t("manager / 2026")}</b><br />{t("Caisse : ")}<b>{t("caisse / 1234")}</b></span></div>}</div></main>;
-    const m = metrics!, mo = month!, active = s.sacks.find(x => x.status === 'active'), low = s.inventory.filter(i => i.quantity <= i.threshold), selectedTitle = nav.find(n => n[0] === view)?.[1] || 'Tableau de bord';
+    const m = metrics!, mo = month!, active = s.sacks.find(x => x.status === 'active'), selectedTitle = nav.find(n => n[0] === view)?.[1] || 'Tableau de bord';
     const products = s.products.filter(p => (category === 'Tous' || p.category === category) && (p.name + ' ' + t(p.name)).toLowerCase().includes(query.toLowerCase()));
     const cartLines: Row[] = Object.entries(cart).flatMap(([id, qty]) => { const p = s.products.find(p => p.id === Number(id)); return p ? [{ ...p, qty }] : []; });
     const cartTotal = cartLines.reduce((a, p) => a + p.price * p.qty, 0);
@@ -312,7 +320,7 @@ export default function App() {
     return <div className="app-shell"><aside className={'sidebar ' + (menu ? 'open' : '')}><Brand /><div className="workspace"><span className="status-dot"/>{t(" Votre caf\u00E9, en direct")}</div><nav>{t(nav.filter(n => manager || ['dashboard', 'pos', 'sales'].includes(n[0])).map(([key, name, Icon]) => <button key={key} onClick={() => navigate(key)} className={view === key ? 'active' : ''}><Icon size={19} strokeWidth={1.6}/><span>{t(name)}</span>{t(key === 'stock' && low.length > 0 && <b className="nav-count">{t(low.length)}</b>)}</button>))}</nav><div className="sidebar-bottom"><div className="mini-coffee"><Coffee size={21}/></div><p>{t("Le go\u00FBt du travail bien fait.")}<small>{t("MONALISA \u00B7 GESTION CAF\u00C9")}</small></p><button className="logout" onClick={async () => { await api('logout', {}); setS(null); setCart({}); setView('dashboard'); setModal(null); }}><LogOut size={16}/>{t(" D\u00E9connexion")}</button></div></aside>{t(menu && <div className="sidebar-overlay" onClick={() => setMenu(false)}/>)}
  <div className="main-shell"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" onClick={() => setMenu(!menu)} aria-label={t("Menu")}><Menu size={22}/></button><span>{t("Monalisa Caf\u00E9")}</span><ChevronRight size={13}/><strong>{t(selectedTitle)}</strong></div><div className="topbar-right"><LanguageSwitcher /><span className="local-badge"><span className="dot"/>{t(" D\u00E9monstration locale")}</span>{t(manager && <button className="notification icon-button" aria-label={t("Alertes stock")} onClick={() => { navigate('stock'); setToast(low.length ? `${low.length} article(s) en stock faible.` : 'Votre stock est à jour.'); }}><Bell size={19}/>{t(low.length > 0 && <i />)}</button>)}{s.orderWaiters?.length > 0 && <button className="button small" onClick={() => show('change-order-pin')}>{t('Mon PIN')}</button>}<div className="user-avatar">{t(s.user.name[0])}</div><div className="user-info"><strong>{t(s.user.name)}</strong><small>{t(manager ? 'Manager' : 'Caissier')}</small></div></div></header>
  <main className={'main-content ' + (view === 'pos' ? 'pos-main' : '')}>
- {manager && <StockAlert key={s.user.id} inventory={s.inventory} paused={!!modal || busy}/>}
+ {manager && <StockAlert key={s.user.id} low={low} paused={!!modal || busy}/>}
  {manager && s.orderPinAlerts?.map(alert => <section className="pin-alert" role="alert" key={alert.employee_id}>
     <CircleAlert size={20}/><div><strong>{t('Tentative suspecte sur le PIN de commande')} · {alert.name}</strong>
     <p>{t('Trois PIN incorrects ont bloqué les commandes pour ce serveur.')}</p>

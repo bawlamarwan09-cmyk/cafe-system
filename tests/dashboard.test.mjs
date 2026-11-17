@@ -20,6 +20,9 @@ test('all four management panels render for managers and are absent for cashiers
  for(const title of ['Ventes du jour','En espèces','Reste du jour','Dernières ventes'])assert.ok(cashier.includes(title),`retained: ${title}`);
  assert.match(manager, /<dialog[^>]*stock-alert-dialog/);
  assert.match(manager, />OK<\/button>/);
+ const stockAlert = manager.match(/<dialog[^>]*stock-alert-dialog[\s\S]*?<\/dialog>/)?.[0] ?? '';
+ assert.match(stockAlert, /Sprite/);
+ assert.doesNotMatch(stockAlert, /Fanta|Coca-Cola Zero|Sprite Citron Menthe/);
  assert.doesNotMatch(cashier, /stock-alert-dialog/);
  assert.match(cashier,/cashier-dashboard/);
  assert.ok(!manager.includes('Crédit clients'));assert.ok(!cashier.includes('Crédit du jour'));
