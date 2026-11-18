@@ -36,3 +36,19 @@ test('manager can change login codes and revoke sessions for self and cashiers',
  await assert.rejects(() => store.login('manager','2026'), error => error.status===401);
  assert.ok(await store.session(await store.login('manager',reset.pin)));
 });
+
+test('coffee without water uses its own price and still counts toward the active sack',async t=>{
+ const {store,manager}=await setup(t);
+ await store.action(manager,'sack-open',{});
+ const {products}=await store.state(manager);
+ const regular=products.find(product=>product.name==='Café noir');
+ const withoutWater=products.find(product=>product.name==='Café sans eau');
+ assert.equal(withoutWater.price,800);
+ assert.equal(withoutWater.equivalent,regular.equivalent);
+ await store.action(manager,'order',{key:'water-options',payment:'cash',lines:[
+  {id:regular.id,qty:1},{id:withoutWater.id,qty:1},
+ ]});
+ const state=await store.state(manager);
+ assert.equal(state.orders[0].total,regular.price+800);
+ assert.equal(state.sacks[0].equivalents,regular.equivalent*2);
+});
