@@ -15,3 +15,24 @@ test('transaction rollback prevents partial sales; stock cannot go below zero',a
 test('purchases update base units and cash once; salary advances affect cash once; closing locks day',async t=>{const {store,manager}=await setup(t);(await store.action(manager,'movement',{kind:'purchase',label:'Carton 24 bouteilles',amount:60,payment:'cash',inventory_id:2,quantity:24}));(await store.action(manager,'movement',{kind:'advance',label:'Avance Bachir',amount:50,payment:'cash',employee_id:1}));assert.equal((await store.state(manager)).inventory[1].quantity,72);assert.equal((await store.cashExpected(1,today(),20000)),9000);(await store.action(manager,'close',{opening:200,counted:90}));assert.equal((await store.state(manager)).closings[0].expected,9000);await assert.rejects(()=>store.action(manager,'order',{key:'after-close',payment:'cash',lines:[{id:6,qty:1}]}),/clôturée/);await assert.rejects(()=>store.action(manager,'movement',{kind:'expense',label:'Après',amount:1,payment:'cash'}),/clôturée/);});
 test('manager actions and café isolation are enforced on the server',async t=>{const {store,manager,cashier}=await setup(t);await assert.rejects(()=>store.action(cashier,'sack-open',{}),/manager/);await assert.rejects(()=>store.action(cashier,'movement',{kind:'expense',amount:1,label:'Non',payment:'cash'}),/manager/);(await store.db.exec("INSERT INTO cafes VALUES(2,'Autre café');INSERT INTO products(id,cafe_id,name,category,price,equivalent,recipe) VALUES(9999,2,'Privé','Boissons',100,0,'{}')"));assert.ok(!(await store.state(manager)).products.find(p=>p.id===9999));await assert.rejects(()=>store.action(manager,'order',{key:'tenant',payment:'cash',lines:[{id:9999,qty:1}]}),/introuvable/);});
 test('closed partial sacks do not permit coffee corrections; completed sacks keep final totals',async t=>{const {store,manager}=await setup(t);(await store.action(manager,'sack-open',{}));(await store.action(manager,'order',{key:'end',payment:'cash',lines:[{id:1,qty:1}]}));(await store.action(manager,'sack-close',{id:1,reason:'Clôture anticipée / reste de café'}));assert.equal((await store.state(manager)).sacks[0].equivalents,1);await assert.rejects(()=>store.action(manager,'cancel',{id:1,reason:'Après clôture'}),/Khncha clôturée/);});
+
+test('manager can change login codes and revoke sessions for self and cashiers', async t => {
+ const store = await testStore(t);
+ const managerToken = await store.login('manager', '2026');
+ const cashierToken = await store.login('caisse', '1234');
+ const manager = await store.session(managerToken), cashier = await store.session(cashierToken);
+ const reset = {account_id:cashier.id,current_pin:'2026',pin:'87264915',confirm_pin:'87264915'};
+ await assert.rejects(() => store.action(cashier,'account-pin',reset), error => error.status===403);
+ await assert.rejects(() => store.action(manager,'account-pin',{...reset,current_pin:'0000'}), error => error.status===403);
+ assert.ok(await store.session(cashierToken));
+ await store.action(manager,'account-pin',reset);
+ assert.equal(await store.session(cashierToken),undefined);
+ assert.ok(await store.session(managerToken));
+ await assert.rejects(() => store.login('caisse','1234'), error => error.status===401);
+ assert.ok(await store.session(await store.login('caisse',reset.pin)));
+
+ await store.action(manager,'account-pin',{...reset,account_id:manager.id});
+ assert.equal(await store.session(managerToken),undefined);
+ await assert.rejects(() => store.login('manager','2026'), error => error.status===401);
+ assert.ok(await store.session(await store.login('manager',reset.pin)));
+});
