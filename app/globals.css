@@ -98,3 +98,16 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .stock-alert-list li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:6px 0}
 
 .product-card.without-photo{min-height:110px;align-self:start}
+
+.product-water-card{display:flex;flex-direction:column;min-width:0;gap:6px}
+.product-water-card>.product-card{width:100%;flex:1}
+.water-default{display:block;margin-top:2px;color:#685536;font-size:12px}
+.water-variant-button{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:48px;padding:5px 8px;border:1px solid #d5bd8e;border-radius:10px;background:#fff8e9;color:#493417;text-align:start;font-size:13px;font-weight:750}
+.water-variant-button strong{margin-inline-start:auto;white-space:nowrap}
+.water-variant-button:hover:not(:disabled){border-color:var(--gold);background:#f9edcf}
+.water-variant-button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.water-variant-button:disabled{opacity:.55;cursor:not-allowed}
+.water-variant-picture{position:relative;display:block;flex:0 0 29px;height:32px;border-radius:5px;overflow:hidden;background:#fff}
+.water-variant-picture img{display:block;width:100%;height:100%;object-fit:contain}
+.water-variant-picture::after{position:absolute;content:"";left:2px;right:2px;top:50%;height:2px;background:#a53232;transform:rotate(-45deg);box-shadow:0 0 0 1px #fff}
+.water-variant-quantity{padding:1px 4px;border-radius:4px;background:#f2e3bf}
