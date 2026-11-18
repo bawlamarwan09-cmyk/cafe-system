@@ -187,3 +187,11 @@ model order_pin_locks {
   terminal_user String
   @@id([cafe_id, employee_id])
 }
+
+model menu_categories {
+  id Int @id @default(autoincrement())
+  cafe_id Int
+  name String
+
+  @@unique([cafe_id, name])
+}

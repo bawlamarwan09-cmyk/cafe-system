@@ -1,7 +1,7 @@
 import {testStore} from './postgres-fixture.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {today} from '../lib/store.mjs';
+import {today,openStore} from '../lib/store.mjs';
 
 async function setup(t){const store=await testStore(t);const manager=(await store.session((await store.login('manager','2026'))));const cashier=(await store.session((await store.login('caisse','1234'))));return {store,manager,cashier};}
 test('price changes after the confirmation preview cannot save a different total silently',async t=>{const {store,manager}=await setup(t);const before=(await store.state(manager)).inventory.find(i=>i.id===2).quantity;await assert.rejects(()=>store.action(manager,'order',{key:'review-price',payment:'cash',expected_total:700,lines:[{id:6,qty:2}]}),/prix ont changé/);assert.equal((await store.state(manager)).orders.length,0);assert.equal((await store.state(manager)).inventory.find(i=>i.id===2).quantity,before);(await store.action(manager,'order',{key:'review-price',payment:'cash',expected_total:1400,lines:[{id:6,qty:2}]}));assert.equal((await store.state(manager)).orders.length,1);});
@@ -51,4 +51,23 @@ test('coffee without water uses its own price and still counts toward the active
  const state=await store.state(manager);
  assert.equal(state.orders[0].total,regular.price+800);
  assert.equal(state.sacks[0].equivalents,regular.equivalent*2);
+});
+
+test('manager renames and deletes categories with product transfer and persists removal', async t => {
+ const {store,manager,cashier}=await setup(t);
+ let state=await store.state(manager);
+ const source=state.categories.find(category=>category.name==='Boissons chaudes');
+ const target=state.categories.find(category=>category.name==='Boissons fraîches');
+ const productIds=state.products.filter(product=>product.category===source.name).map(product=>product.id);
+ await assert.rejects(()=>store.action(cashier,'category',{id:source.id,name:'Privé'}),error=>error.status===403);
+ await store.action(manager,'category',{id:source.id,name:'Chaud'});
+ state=await store.state(manager);
+ assert.ok(state.products.filter(product=>productIds.includes(product.id)).every(product=>product.category==='Chaud'));
+ await assert.rejects(()=>store.action(manager,'category-delete',{id:source.id}));
+ await store.action(manager,'category-delete',{id:source.id,target_id:target.id});
+ state=await store.state(manager);
+ assert.ok(!state.categories.some(category=>category.id===source.id));
+ assert.ok(state.products.filter(product=>productIds.includes(product.id)).every(product=>product.category===target.name));
+ const reopened=await openStore(store.db);
+ assert.ok(!(await reopened.state(manager)).categories.some(category=>category.id===source.id));
 });
