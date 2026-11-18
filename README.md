@@ -80,7 +80,7 @@ npm start -- --hostname 127.0.0.1
 
 Exécutez le service sous un utilisateur dédié. Configurez le reverse proxy du VPS pour publier le port 3007 sur un domaine HTTPS, par exemple `https://api-cafe.example.com`. Si 3007 est déjà pris, choisissez un port libre avec `npx next start -p PORT --hostname 127.0.0.1`. Gardez PostgreSQL accessible uniquement depuis le backend.
 
-- **VPS** · Définissez `DATABASE_URL`, les deux PIN de production pour une installation neuve, et `MONALISA_ORIGIN=https://cafe.example.com` (l'origine publique de Vercel, sans slash final). Laissez `MONALISA_API_ORIGIN` absent.
+- **VPS** · Définissez `DATABASE_URL`, les deux PIN de production pour une installation neuve, et `MONALISA_ORIGIN=https://cafe.example.com` (l'origine publique de Vercel, sans slash final). Laissez `MONALISA_API_ORIGIN` absent. Ajoutez `MONALISA_JWT_SECRET` dans ce fichier privé, avec une valeur aléatoire générée par `openssl rand -hex 32`. Gardez le même secret pour les instances du backend. La mise à jour JWT nécessite une nouvelle connexion.
 - **Vercel** · Importez le même dépôt Next.js. Définissez uniquement `MONALISA_API_ORIGIN=https://api-cafe.example.com` pour le routage de l'API et redéployez. La réécriture envoie `/api/*` vers le VPS tout en gardant la session sur le domaine de la caisse.
 - Vérifiez depuis Vercel la connexion, une vente de test, le stock, et l'impression sur le terminal. L'interface affiche uniquement des codes numériques en cas d'erreur.
 

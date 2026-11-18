@@ -151,11 +151,29 @@ const totals = (s: State, date: string, month = false) => {
     return { sales, credit, salary, expenses, purchases, repayments, cash: orders.filter(o => o.payment === 'cash').reduce((a, o) => a + o.total, 0), card: orders.filter(o => o.payment === 'card').reduce((a, o) => a + o.total, 0), remainder: sales - credit - expenses - salary + repayments, result: sales - credit - expenses - salary - purchases + repayments, orders, movements, withdrawals: sum('withdrawal') };
 };
 async function api(path: string, body?: Row) {
-    const response = await fetch('/api/' + path, body
-        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-        : { cache: 'no-store' });
-    if (!response.ok) throw Error(String(response.status));
-    return response.json();
+    const url = '/api/' + path;
+    const method = body ? 'POST' : 'GET';
+    const started = performance.now();
+    let status: number | undefined;
+    try {
+        const response = await fetch(url, body
+            ? { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+            : { cache: 'no-store' });
+        status = response.status;
+        if (!response.ok) throw Error(String(status));
+        const data = await response.json();
+        const durationMs = Math.round(performance.now() - started);
+        if (durationMs >= 1000) console.info('[Monalisa API] Slow response', { method, url, status, durationMs });
+        return data;
+    } catch (error) {
+        if (!(path.split('?')[0] === 'state' && status === 401)) {
+            console.warn('[Monalisa API] Request failed', {
+                method, url, status, durationMs: Math.round(performance.now() - started),
+                reason: status === undefined ? 'No HTTP response' : status < 400 ? 'Invalid response body' : 'HTTP error',
+            });
+        }
+        throw error;
+    }
 }
 function Brand() { const { t } = useTranslation(); return <div className="brand"><div className="brand-mark"><Coffee size={37} strokeWidth={1.2}/><span /></div><strong>{t("MONALISA")}</strong><div className="brand-bottom"><i />{t("CAF\u00C9")}<i /></div></div>; }
 function Empty({ text = 'Aucun mouvement pour le moment.', action }: {
@@ -211,8 +229,8 @@ export default function App() {
         setS(j);
         setDate(d => d || j.today);
     }
-    catch {
-        setS(null);
+    catch (error) {
+        if (errorNumber(error) === '401') setS(null);
     }
     finally {
         setLoading(false);
