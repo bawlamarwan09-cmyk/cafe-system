@@ -284,3 +284,10 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .balance-table td.balance-negative{color:#963e32}
 .balance-table td.balance-positive{color:#285d38}
 @media(max-width:700px){.balance-table th,.balance-table td{padding:16px}.balance-table thead th{font-size:14px}.balance-table tbody td,.balance-table tfoot th,.balance-table tfoot td{font-size:15px}}
+
+.pos-category-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:10px;margin:18px 0 24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.pos-category-card{display:flex;align-items:center;justify-content:center;min-height:52px;padding:10px 12px;border:2px solid #ded3bd;border-radius:9px;background:var(--paper);color:#4c3b22;font-size:13px;font-weight:700;line-height:1.5;text-align:center;overflow-wrap:anywhere}
+.pos-category-card:hover{background:#f6efdf;border-color:var(--gold)}
+.pos-category-card.selected{background:var(--gold-dark);border-color:var(--gold-dark);color:white;box-shadow:0 2px 5px #6e4c1318}
+@media(max-width:700px){.pos-category-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0 20px;padding-bottom:16px}.pos-category-card{font-size:12px;padding:9px 7px;min-height:50px}}
+@media(max-width:380px){.pos-category-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
