@@ -107,3 +107,65 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .water-variant-picture{position:relative;display:block;flex:0 0 29px;height:32px;border-radius:5px;overflow:hidden;background:#fff}
 .water-variant-picture img{display:block;width:100%;height:100%;object-fit:contain}
 .water-variant-no-water::after{position:absolute;content:"";left:2px;right:2px;top:50%;height:2px;background:#a53232;transform:rotate(-45deg);box-shadow:0 0 0 1px #fff}
+
+/* Coffee tracking: keep each figure and section readable at every width. */
+.sacks-page .section-actions{flex-wrap:wrap;gap:16px;margin-bottom:24px}
+.sacks-page .section-actions p{margin:0;line-height:1.7}
+.sacks-page .coffee-pack-panel{padding:24px;margin:0 0 24px}
+.sacks-page .coffee-pack-panel>.panel-heading{padding:0;margin-bottom:20px;align-items:flex-start}
+.coffee-pack-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--paper)}
+.coffee-pack-metrics>div{min-width:0;padding:20px 22px;box-shadow:1px 0 var(--border),0 1px var(--border)}
+.coffee-pack-metrics dt{font-size:12px;line-height:1.65;color:var(--muted);overflow-wrap:anywhere}
+.coffee-pack-metrics dd{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin:10px 0 0;font-size:30px;font-weight:700;line-height:1.25;color:var(--gold-dark);font-variant-numeric:tabular-nums}
+.coffee-pack-metrics dd small{font-size:13px;font-weight:600;color:var(--muted)}
+.sacks-page .coffee-pack-panel>.micro-note{margin:16px 0 0;line-height:1.8}
+.sacks-page .sack-analysis{padding:24px;margin-bottom:24px}
+.sacks-page .sack-analysis-heading{flex-wrap:wrap;gap:20px}
+.sacks-page .sack-analysis-heading>div{flex:1;min-width:200px}
+.sacks-page .sack-selector{min-width:0;flex:0 1 290px;max-width:100%}
+.sacks-page .sack-selector select{width:100%;text-overflow:ellipsis}
+.sacks-page .sack-analysis-layout{grid-template-columns:minmax(0,1fr) minmax(240px,280px);gap:24px;align-items:start}
+.sacks-page .sack-plot-caption{flex-wrap:wrap;gap:8px;margin-bottom:24px;line-height:1.7}
+.sacks-page .sack-plot{height:280px}
+.sacks-page .sack-result dl>div{gap:16px;line-height:1.65}
+.sacks-page .sack-result dt,.sacks-page .sack-result dd{min-width:0;overflow-wrap:anywhere}
+.sacks-page .sack-result dd{max-width:55%}
+.sacks-page .sack-result-value{margin:18px 0}
+.sacks-page .sack-result-targets{line-height:1.8}
+.sacks-page .active-sack-detail{margin:0 0 24px;padding:28px;align-items:flex-start;gap:32px}
+.sacks-page .active-sack-detail h2{margin:16px 0 20px;line-height:1.35;overflow-wrap:anywhere}
+.sacks-page .active-sack-detail p{line-height:1.8}
+.sacks-page .active-sack-detail small{display:block;line-height:1.8}
+.sacks-page .active-sack-detail .sack-progress{margin:22px 0}
+.sacks-page .sack-big{align-self:center;flex-shrink:0;gap:24px}
+.sacks-page .yield-guide{margin:0 0 24px;padding:24px}
+.sacks-page .yield-legend{gap:12px;line-height:1.6}
+.sacks-page .yield-legend .badge{white-space:normal}
+.sacks-page .barista-summary .empty{min-height:150px;padding:28px 24px}
+.sacks-page .table-wrap{overflow-x:auto}
+.sacks-page table{min-width:760px}
+.sacks-page td,.sacks-page th{line-height:1.7;padding:16px 18px}
+.sacks-page td .badge{white-space:normal}
+@media(max-width:1100px){
+ .sacks-page .sack-analysis-layout{grid-template-columns:1fr}
+ .sacks-page .sack-result{display:block}
+ .sacks-page .sack-result dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+ .sacks-page .sack-result-value{font-size:38px}
+}
+@media(max-width:700px){
+ .sacks-page .coffee-pack-panel,.sacks-page .sack-analysis,.sacks-page .active-sack-detail,.sacks-page .yield-guide{padding:20px}
+ .coffee-pack-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .coffee-pack-metrics>div{padding:16px}
+ .coffee-pack-metrics dd{font-size:26px}
+ .sacks-page .sack-selector{flex-basis:100%;width:100%}
+ .sacks-page .sack-analysis-heading>div{min-width:0}
+ .sacks-page .sack-result dl{display:block}
+ .sacks-page .active-sack-detail{flex-direction:column;gap:20px}
+ .sacks-page .sack-big{width:100%;flex-wrap:wrap;justify-content:space-between;align-self:stretch}
+ .sacks-page .sack-big .button{white-space:normal;text-align:center}
+ .sacks-page .yield-targets{flex-wrap:wrap;line-height:1.7}
+}
+@media(max-width:380px){
+ .coffee-pack-metrics{grid-template-columns:1fr}
+ .sacks-page .coffee-pack-panel,.sacks-page .sack-analysis,.sacks-page .active-sack-detail,.sacks-page .yield-guide{padding:16px}
+}

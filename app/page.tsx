@@ -221,16 +221,19 @@ function CoffeePackProgress({sacks, stock}: {sacks: Row[]; stock: number}) {
     const {t, number} = useTranslation();
     const pack = currentCoffeePack(sacks);
     const active = sacks.find(sack => sack.status === 'active' && Number(sack.weight_kg) === 1);
-    return <section className="panel space-top">
+    const metrics = [
+        {label: 'Stock total fermé', value: number(stock), unit: 'kg'},
+        {label: 'Khnchas ouvertes dans le lot', value: number(pack?.opened ?? 0), unit: `/ ${coffeePackSize}`},
+        {label: 'Khnchas à ouvrir dans le lot', value: number(pack?.unopened ?? coffeePackSize), unit: `/ ${coffeePackSize}`},
+        {label: 'Quantité entièrement consommée', value: number(pack?.consumed ?? 0), unit: 'kg'},
+        ...(active ? [{label: 'Équivalents de la khncha en cours', value: number(active.equivalents), unit: 'éq.'}] : []),
+        {label: 'Équivalents du lot', value: number(pack?.equivalents ?? 0), unit: 'éq.'},
+    ];
+    return <section className="panel coffee-pack-panel">
         <div className="panel-heading"><h2>{t('Suivi du lot de 6 kg')}</h2>{pack && <Badge tone="neutral">#{pack.number}</Badge>}</div>
-        <div className="sack-details">
-            <span>{t('Stock total fermé')} <b>{number(stock)} kg</b></span>
-            <span>{t('Khnchas ouvertes dans le lot')} <b>{number(pack?.opened ?? 0)}/{coffeePackSize}</b></span>
-            <span>{t('Khnchas à ouvrir dans le lot')} <b>{number(pack?.unopened ?? coffeePackSize)}/{coffeePackSize}</b></span>
-            <span>{t('Quantité entièrement consommée')} <b>{number(pack?.consumed ?? 0)} kg</b></span>
-            {active && <span>{t('Équivalents de la khncha en cours')} <b>{number(active.equivalents)} {t('éq.')}</b></span>}
-            <span>{t('Équivalents du lot')} <b>{number(pack?.equivalents ?? 0)} {t('éq.')}</b></span>
-        </div>
+        <dl className="coffee-pack-metrics">
+            {metrics.map(metric => <div key={metric.label}><dt>{t(metric.label)}</dt><dd>{metric.value}<small>{t(metric.unit)}</small></dd></div>)}
+        </dl>
         <p className="micro-note">{t('Les ouvertures de khnchas de 1 kg sont groupées par six dans leur ordre d’ouverture.')}</p>
     </section>;
 }
@@ -443,7 +446,7 @@ export default function App() {
     } setTimeout(() => { frame.contentWindow?.focus(); frame.contentWindow?.print(); }, 200); setTimeout(() => frame.remove(), 120000); };
     return <div className="app-shell"><aside className={'sidebar ' + (menu ? 'open' : '')}><Brand /><div className="workspace"><span className="status-dot"/>{t(" Votre caf\u00E9, en direct")}</div><nav>{t(nav.filter(n => manager || ['dashboard', 'pos', 'sales'].includes(n[0])).map(([key, name, Icon]) => <button key={key} onClick={() => navigate(key)} className={view === key ? 'active' : ''}><Icon size={19} strokeWidth={1.6}/><span>{t(name)}</span>{t(key === 'stock' && low.length > 0 && <b className="nav-count">{t(low.length)}</b>)}</button>))}</nav><div className="sidebar-bottom"><div className="mini-coffee"><Coffee size={21}/></div><p>{t("Le go\u00FBt du travail bien fait.")}<small>{t("MONALISA \u00B7 GESTION CAF\u00C9")}</small></p><button className="logout" onClick={async () => { await api('logout', {}); setS(null); setCart({}); setView('dashboard'); setModal(null); }}><LogOut size={16}/>{t(" D\u00E9connexion")}</button></div></aside>{t(menu && <div className="sidebar-overlay" onClick={() => setMenu(false)}/>)}
  <div className="main-shell"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" onClick={() => setMenu(!menu)} aria-label={t("Menu")}><Menu size={22}/></button><span>{t("Monalisa Caf\u00E9")}</span><ChevronRight size={13}/><strong>{t(selectedTitle)}</strong></div><div className="topbar-right"><LanguageSwitcher /><span className="local-badge"><span className="dot"/>{t(" D\u00E9monstration locale")}</span>{t(manager && <button className="notification icon-button" aria-label={t("Alertes stock")} onClick={() => { navigate('stock'); setToast(low.length ? `${low.length} article(s) en stock faible.` : 'Votre stock est à jour.'); }}><Bell size={19}/>{t(low.length > 0 && <i />)}</button>)}{s.orderWaiters?.length > 0 && <button className="button small" onClick={() => show('change-order-pin')}>{t('Mon PIN')}</button>}<div className="user-avatar">{t(s.user.name[0])}</div><div className="user-info"><strong>{t(s.user.name)}</strong><small>{t(manager ? 'Manager' : 'Caissier')}</small></div></div></header>
- <main className={'main-content ' + (view === 'pos' ? 'pos-main' : '')}>
+ <main className={'main-content ' + (view === 'pos' ? 'pos-main' : view === 'sacks' ? 'sacks-page' : '')}>
  {manager && <StockAlert key={s.user.id} low={low} paused={!!modal || busy}/>}
  {manager && s.orderPinAlerts?.map(alert => <section className="pin-alert" role="alert" key={alert.employee_id}>
     <CircleAlert size={20}/><div><strong>{t('Tentative suspecte sur le PIN de commande')} · {alert.name}</strong>
