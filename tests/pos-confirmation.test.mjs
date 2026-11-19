@@ -30,10 +30,14 @@ test('POS review and cancel never save a sale; only final confirmation submits, 
  function find(predicate,node){if(!node)return null;if(Array.isArray(node)){for(const child of node){const result=find(predicate,child);if(result)return result;}return null;}if(typeof node!=='object')return null;return predicate(node)?node:find(predicate,node.props?.children??null);}
  const findInTree=predicate=>find(predicate,tree);
  const button=className=>findInTree(n=>n.type==='button'&&n.props.className?.includes(className));
- render();assert.equal(button('confirm-sale'),null);button('pos-cart-button').props.onClick();render();button('confirm-sale').props.onClick();let html=render();assert.equal(posts,0);assert.equal((await store.state(user)).orders.length,0);assert.match(html,/Vérifier la commande/);assert.match(html,/Eau minérale/);assert.match(html,/14 DH/);assert.match(html,/Espèces/);
- let actions=findInTree(n=>n.type==='div'&&n.props.className==='modal-actions');actions.props.children[0].props.onClick();render();assert.equal(values[9].type,'cart');assert.deepEqual(values[7],{6:2});assert.equal(posts,0);
- button('confirm-sale').props.onClick();render();
+ render();assert.equal(button('confirm-sale'),null);button('pos-cart-button').props.onClick();let html=render();assert.match(html,/Impression automatique/);assert.equal(findInTree(n=>n.props?.className==='cart-drawer'),null);assert.equal(posts,0);assert.equal((await store.state(user)).orders.length,0);assert.match(html,/Vérifier la commande/);assert.match(html,/Eau minérale/);assert.match(html,/14 DH/);assert.match(html,/Espèces/);
+ let actions=findInTree(n=>n.type==='div'&&n.props.className==='modal-actions');actions.props.children[0].props.onClick();render();assert.equal(values[9],null);assert.deepEqual(values[7],{6:2});assert.equal(posts,0);
+ button('pos-cart-button').props.onClick();render();
  assert.equal(findInTree(n=>n.type==='div'&&n.props.className==='modal-actions').props.children[1].props.disabled,true);
+ findInTree(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Ajouter un ')).props.onClick();
+ html=render();assert.match(html,/21 DH/);assert.equal(values[7][6],3);
+ findInTree(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Retirer un ')).props.onClick();
+ html=render();assert.match(html,/14 DH/);assert.equal(values[7][6],2);
  assert.equal(findInTree(n=>n.type==='select'&&n.props.value===''),null);
  findInTree(n=>n.type==='button'&&n.props.className?.startsWith('waiter-option ')).props.onClick();
  render();
