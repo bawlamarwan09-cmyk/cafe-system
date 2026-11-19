@@ -271,3 +271,16 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
  .pos-cart-button strong{margin-inline-start:auto}
 }
 @media(max-width:380px){.pos-main .product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pos-cart-button{font-size:12px}.pos-cart-button strong{font-size:15px}}
+
+/* A clearly ruled daily ledger with a distinct total row. */
+.balance-table{border:2px solid #a58b61;border-radius:10px}
+.balance-table table{border-collapse:collapse;border-spacing:0;color:#282116}
+.balance-table th,.balance-table td{border:1px solid #bbab8d;padding:20px 24px;text-align:start;line-height:1.7;vertical-align:middle}
+.balance-table thead th{background:#eee2c9;color:#302516;font-size:15px;font-weight:800;border-bottom:2px solid #a58b61}
+.balance-table tbody td{font-size:16px;font-weight:700;background:#fffefa}
+.balance-table tbody tr:nth-child(even) td{background:#faf6ee}
+.balance-table td small{font-size:13px;font-weight:600;color:#5d4b30;margin-top:5px}
+.balance-table tfoot th,.balance-table tfoot td{background:#ead7ac;color:#302516;border-top:3px solid #977641;font-size:17px;font-weight:800}
+.balance-table td.balance-negative{color:#963e32}
+.balance-table td.balance-positive{color:#285d38}
+@media(max-width:700px){.balance-table th,.balance-table td{padding:16px}.balance-table thead th{font-size:14px}.balance-table tbody td,.balance-table tfoot th,.balance-table tfoot td{font-size:15px}}
