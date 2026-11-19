@@ -118,7 +118,15 @@ test('each coffee consumes one water bottle, sans eau consumes none, and edits a
  assert.equal((await store.state(manager)).inventory.find(item=>item.id===waterId).quantity,before);
  await store.db.exec('UPDATE inventory SET quantity=0 WHERE id='+waterId);
  state=await store.state(manager);
- assert.equal(state.products.find(product=>product.id===coffee.id).available,false);
+ assert.equal(state.products.find(product=>product.id===coffee.id).available,true);
  assert.equal(state.products.find(product=>product.id===without.id).available,true);
- await assert.rejects(()=>store.action(manager,'order',{key:'no-water',payment:'cash',lines:[{id:coffee.id,qty:1}]}),/Stock insuffisant/);
+ const drySale=await store.action(manager,'order',{key:'no-water',payment:'cash',lines:[{id:coffee.id,qty:1}]});
+ assert.equal((await store.state(manager)).inventory.find(item=>item.id===waterId).quantity,-1);
+ await store.action(manager,'order-edit',{id:drySale.id,revision:0,payment:'cash',reason:'Deux cafés',lines:[{id:coffee.id,qty:2}],expected_total:coffee.price*2});
+ assert.equal((await store.state(manager)).inventory.find(item=>item.id===waterId).quantity,-2);
+ await store.action(manager,'cancel',{id:drySale.id,revision:1,reason:'Erreur'});
+ assert.equal((await store.state(manager)).inventory.find(item=>item.id===waterId).quantity,0);
+ await assert.rejects(()=>store.action(manager,'order',{key:'water-alone',payment:'cash',lines:[{id:water.id,qty:1}]}),/Stock insuffisant/);
+ await store.action(manager,'sack-close',{id:initial.sacks[0].id,reason:'Sac entièrement consommé'});
+ assert.equal((await store.state(manager)).products.find(product=>product.id===coffee.id).available,false);
 });
