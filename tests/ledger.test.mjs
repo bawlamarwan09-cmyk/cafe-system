@@ -93,3 +93,32 @@ test('adding an employee creates a cashier login atomically with the same name a
  assert.equal(after.employees.length,before.employees.length+1);
  assert.equal(after.accounts.length,before.accounts.length+1);
 });
+
+test('each coffee consumes one water bottle, sans eau consumes none, and edits and cancellation restore stock', async t => {
+ const {store,manager}=await setup(t);
+ await store.action(manager,'sack-open',{});
+ const initial=await store.state(manager);
+ const water=initial.products.find(product=>product.catalog_key==='aquafina');
+ const waterId=Number(Object.keys(water.recipe)[0]);
+ const before=initial.inventory.find(item=>item.id===waterId).quantity;
+ const coffee=initial.products.find(product=>product.name==='Café noir');
+ const without=initial.products.find(product=>product.name==='Café sans eau');
+ const double=initial.products.find(product=>product.name==='Café double');
+ const sale=await store.action(manager,'order',{key:'coffee-water',payment:'cash',lines:[
+  {id:coffee.id,qty:2},{id:double.id,qty:1},{id:without.id,qty:2},{id:water.id,qty:1},
+ ]});
+ let state=await store.state(manager);
+ assert.equal(state.inventory.find(item=>item.id===waterId).quantity,before-4);
+ await store.action(manager,'order-edit',{id:sale.id,revision:0,payment:'cash',reason:'Sans eau',lines:[
+  {id:without.id,qty:3},
+ ],expected_total:without.price*3});
+ state=await store.state(manager);
+ assert.equal(state.inventory.find(item=>item.id===waterId).quantity,before);
+ await store.action(manager,'cancel',{id:sale.id,revision:1,reason:'Erreur'});
+ assert.equal((await store.state(manager)).inventory.find(item=>item.id===waterId).quantity,before);
+ await store.db.exec('UPDATE inventory SET quantity=0 WHERE id='+waterId);
+ state=await store.state(manager);
+ assert.equal(state.products.find(product=>product.id===coffee.id).available,false);
+ assert.equal(state.products.find(product=>product.id===without.id).available,true);
+ await assert.rejects(()=>store.action(manager,'order',{key:'no-water',payment:'cash',lines:[{id:coffee.id,qty:1}]}),/Stock insuffisant/);
+});

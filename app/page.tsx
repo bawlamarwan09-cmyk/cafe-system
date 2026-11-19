@@ -141,7 +141,7 @@ function StockAlert({low, paused}: {low: Row[]; paused: boolean}) {
 
 function StockPicture({item,products}:{item:Row;products:Row[]}) {
     // Only a one-to-one recipe identifies the same stock item.
-    const product=products.find(p=>p.stock_tracked!==false&&p.image_path&&Object.keys(p.recipe||{}).length===1&&Number(p.recipe?.[item.id])===1);
+    const product=products.find(p=>stockBottleKeys.has(p.catalog_key)&&p.image_path&&Object.keys(p.recipe||{}).length===1&&Number(p.recipe?.[item.id])===1);
     return product ? <div className="stock-picture"><ProductPicture product={product}/></div> : null;
 }
 const totals = (s: State, date: string, month = false) => {
