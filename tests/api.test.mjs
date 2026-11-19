@@ -33,7 +33,7 @@ test('API authentication → café data → sale → persisted response, without
  assert.equal((await post('product-delete',{id:1})).status,401);
  cookie='';
  assert.equal((await post('login',{username:'manager',pin:'2026'},'https://untrusted.example')).status,403);
- const denied=await post('login',{username:'manager',pin:'wrong'});assert.equal(denied.status,401);assert.deepEqual(await denied.json(),{error:401});
+ const denied=await post('login',{username:'manager',pin:'wrong'});assert.equal(denied.status,401);assert.deepEqual(await denied.json(),{error:401,message:'Identifiant ou code incorrect.'});
  const login=await post('login',{username:'manager',pin:'2026'});assert.equal(login.status,200);cookie=login.headers.get('set-cookie').split(';')[0];assert.match(login.headers.get('set-cookie'),/HttpOnly/i);assert.deepEqual(await login.json(),{ok:true});
  const managerCookie=cookie;
  const [jwtHeader,jwtPayload,jwtSignature]=cookie.slice('monalisa_session='.length).split('.');
@@ -48,8 +48,11 @@ test('API authentication → café data → sale → persisted response, without
  } finally { Date.now=originalTime; }
  cookie=managerCookie;
  const initial=await route.GET(new NextRequest(upstream+'/api/state',{headers:{cookie}}));assert.equal(initial.status,200);const data=await initial.json();assert.equal(data.user.cafe_name,'Monalisa Café');assert.equal(data.products.length,110);assert.ok(!('pin' in data.user));
+ const badProduct=await post('product',{name:'Essai',category:'Boissons chaudes',price:-1});
+ assert.equal(badProduct.status,400);
+ assert.equal((await badProduct.json()).message,'Montant invalide.');
  assert.equal((await post('sack-open',{})).status,200);
  const order=await post('order',{key:'ui-order',payment:'cash',lines:[{id:1,qty:2},{id:6,qty:1}]});assert.equal(order.status,200);const result=await order.json();assert.equal(result.id,1);
- const refreshed=await (await route.GET(new NextRequest(upstream+'/api/state',{headers:{cookie}}))).json();assert.equal(refreshed.orders[0].total,2900);assert.equal(refreshed.sacks[0].equivalents,2);assert.equal(refreshed.inventory.find(i=>i.id===2).quantity,47);
+ const refreshed=await (await route.GET(new NextRequest(upstream+'/api/state',{headers:{cookie}}))).json();assert.equal(refreshed.orders[0].total,2900);assert.equal(refreshed.sacks[0].equivalents,2);assert.equal(refreshed.inventory.find(i=>i.id===2).quantity,45);
  assert.equal((await post('logout',{})).status,200);assert.equal((await route.GET(new NextRequest(upstream+'/api/state',{headers:{cookie}}))).status,401);
 });

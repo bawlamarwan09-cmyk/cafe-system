@@ -27,8 +27,26 @@ type State = {
     orderPinAlerts?: {employee_id:number;name:string;reported_at:string;terminal_user:string}[];
 };
 const nav = [['dashboard', 'Tableau de bord', LayoutDashboard], ['pos', 'Caisse / POS', ShoppingBag], ['sales', 'Ventes', BarChart3], ['stock', 'Stock', Package], ['sacks', 'Khnchas café', Wheat], ['purchases', 'Achats', ShoppingBag], ['expenses', 'Dépenses', Wallet], ['employees', 'Employés', Users], ['reports', 'Rapports', ReceiptText], ['settings', 'Paramètres', Settings]] as const;
-const orderPinLocked = '423';
-const errorNumber = (error: unknown) => error instanceof Error && /^\d{3}$/.test(error.message) ? error.message : '503';
+const orderPinLocked = 'Serveur bloqué après 3 PIN incorrects. Seul le manager peut le débloquer avec un nouveau PIN.';
+const requestErrors: Record<number, string> = {
+    400: 'Requête invalide. Vérifiez les informations saisies.',
+    401: 'Votre session a expiré. Reconnectez-vous.',
+    403: 'Vous n’avez pas les droits pour cette opération.',
+    404: 'Élément introuvable. Rechargez la page.',
+    409: 'Les données ont changé ou cette valeur existe déjà. Rechargez la page.',
+    413: 'La photo est trop volumineuse. Choisissez une image plus petite.',
+    423: orderPinLocked,
+    429: 'Trop de tentatives. Réessayez dans 15 minutes.',
+    500: 'Une erreur est survenue sur le serveur. Réessayez dans un instant.',
+    502: 'Le serveur est momentanément inaccessible. Réessayez dans un instant.',
+    503: 'Connexion au serveur impossible. Vérifiez votre connexion et réessayez.',
+    504: 'Le serveur met trop de temps à répondre. Vérifiez le résultat avant de réessayer.',
+};
+class ApiError extends Error {
+    constructor(public status: number, message: string) { super(message); }
+}
+const errorNumber = (error: unknown) => error instanceof ApiError ? String(error.status) : error instanceof Error && /^\d{3}$/.test(error.message) ? error.message : '503';
+const errorMessage = (error: unknown) => error instanceof ApiError ? error.message : requestErrors[Number(errorNumber(error))] ?? requestErrors[503];
 const kindName: Record<string, string> = { expense: 'Dépense', purchase: 'Achat', salary: 'Salaire', advance: 'Avance', repayment: 'Remboursement', withdrawal: 'Retrait', adjustment: 'Ajustement' };
 // Base64 adds a third to the file size. Leave space for the rest of the JSON request.
 const productPhotoBudget = 700 * 1024;
@@ -161,7 +179,12 @@ async function api(path: string, body?: Row) {
             ? { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
             : { cache: 'no-store' });
         status = response.status;
-        if (!response.ok) throw Error(String(status));
+        if (!response.ok) {
+            const details = await response.json().catch(() => null);
+            const message = typeof details?.message === 'string' && details.message.trim() && !/^\d+$/.test(details.message.trim())
+                ? details.message : requestErrors[status] ?? requestErrors[500];
+            throw new ApiError(status, message);
+        }
         const data = await response.json();
         const durationMs = Math.round(performance.now() - started);
         if (durationMs >= 1000) console.info('[Monalisa API] Slow response', { method, url, status, durationMs });
@@ -249,6 +272,8 @@ export default function App() {
     }
     catch (error) {
         if (errorNumber(error) === '401') setS(null);
+        else if (s) setError(errorMessage(error));
+        else setLoginError(errorMessage(error));
     }
     finally {
         setLoading(false);
@@ -289,8 +314,8 @@ export default function App() {
         return result;
     }
     catch (e) {
-        if (errorNumber(e) === orderPinLocked) await refresh();
-        setError(errorNumber(e));
+        if (errorNumber(e) === '423') await refresh();
+        setError(errorMessage(e));
         return null;
     }
     finally {
@@ -315,7 +340,7 @@ export default function App() {
             await refresh();
         }
         catch (err) {
-            setLoginError(errorNumber(err));
+            setLoginError(errorMessage(err));
         }
         finally {
             setBusy(false);
@@ -506,13 +531,13 @@ export default function App() {
                         const photo = f.photo;
                         if (photo instanceof File && photo.size) {
                             if (!['image/jpeg','image/png','image/webp'].includes(photo.type)) {
-                                setError('400');
+                                setError('Choisissez une photo JPG, PNG ou WebP valide.');
                                 return;
                             }
                             try {
                                 body.image_path = await productPhotoData(photo);
                             } catch (error) {
-                                setError(errorNumber(error) === '413' ? '413' : '400');
+                                setError(errorNumber(error) === '413' ? requestErrors[413] : 'Impossible de lire la photo. Choisissez une autre image.');
                                 return;
                             }
                         }
