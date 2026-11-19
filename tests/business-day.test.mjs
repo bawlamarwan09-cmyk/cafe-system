@@ -1,0 +1,22 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {testStore} from './postgres-fixture.mjs';
+import {today} from '../lib/store.mjs';
+test('service day survives midnight and reconnect; only manager closure advances it',async t=>{
+ const store=await testStore(t);
+ const manager=await store.session(await store.login('manager','2026'));
+ const cashier=await store.session(await store.login('caisse','1234'));
+ const yesterday=new Date(today()+'T12:00:00Z');yesterday.setUTCDate(yesterday.getUTCDate()-1);const serviceDate=yesterday.toISOString().slice(0,10);
+ await store.db.$executeRawUnsafe('UPDATE cafes SET business_date=$1 WHERE id=1',serviceDate);
+ assert.equal((await store.state(cashier)).today,serviceDate);
+ const order=await store.action(cashier,'order',{date:today(),key:'after-midnight',payment:'cash',lines:[{id:6,qty:1}]});
+ assert.equal(order.order.date,serviceDate);assert.equal(order.order.created.slice(0,10),new Date().toISOString().slice(0,10));
+ await assert.rejects(()=>store.action(cashier,'close',{opening:0,counted:7}),e=>e.status===403);
+ assert.equal((await store.state(manager)).today,serviceDate);
+ const closed=await store.action(manager,'close',{date:serviceDate,opening:0,counted:7});
+ assert.equal(closed.businessDate,today());
+ const after=await store.state(manager);assert.equal(after.today,today());assert.equal(after.closings[0].expected,700);
+ const next=await store.action(cashier,'order',{key:'next-service',payment:'cash',lines:[{id:6,qty:1}]});assert.equal(next.order.date,today());
+ await assert.rejects(()=>store.action(manager,'movement',{date:serviceDate,kind:'expense',label:'Ancienne journée',amount:1,payment:'cash'}),/clôturée/);
+ const retry=await store.action(cashier,'order',{key:'after-midnight',payment:'cash',lines:[{id:6,qty:1}]});assert.equal(retry.id,order.id);assert.equal(retry.order.date,serviceDate);
+});

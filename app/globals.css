@@ -196,3 +196,45 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .waiter-pin-label input{text-align:center!important;direction:ltr;font-size:24px;letter-spacing:12px;height:52px}
 @media(max-width:900px){.receipt-settings-layout{grid-template-columns:1fr}.receipt-settings-preview{max-width:440px;width:100%;justify-self:center}}
 @media(max-width:550px){.receipt-settings-form,.receipt-settings-preview{padding:20px}.waiter-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.balance-toolbar{display:flex;justify-content:space-between;align-items:end;gap:24px;padding:22px;margin-bottom:22px;flex-wrap:wrap}
+.balance-filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end}
+.balance-filters label{min-width:150px}
+.service-day{display:flex;align-items:center;flex-wrap:wrap;gap:14px;line-height:1.7}
+.service-day strong{display:block;font-variant-numeric:tabular-nums}
+.balance-table table{width:100%;min-width:580px;font-variant-numeric:tabular-nums}
+.balance-table th,.balance-table td{padding:18px 22px}
+.balance-table tfoot{background:var(--gold-light);font-weight:800;border-top:2px solid var(--border)}
+.balance-positive{color:#386a46;font-weight:800}.balance-negative{color:var(--red);font-weight:800}
+.balance-breakdown{margin-top:22px;padding:24px}
+.balance-breakdown dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin:24px 0}
+.balance-breakdown dt{color:var(--muted);font-size:12px;line-height:1.7}
+.balance-breakdown dd{margin:8px 0 0;font-size:22px;font-weight:700}
+.pos-main .pos-layout{grid-template-columns:minmax(0,1fr) 310px;gap:18px}
+.pos-main .pos-layout>section{min-width:0}
+.pos-category-filter{margin:12px 0;display:flex;flex-direction:row;align-items:center;gap:12px}
+.pos-category-filter select{max-width:280px}
+.pos-main .product-grid{grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px;max-height:calc(100dvh - 300px);min-height:200px;overflow-y:auto;padding:3px 5px 8px;align-content:start;overscroll-behavior:contain}
+.pos-main .product-card{padding:9px;min-height:138px;border-radius:9px;gap:5px;justify-content:space-between}
+.pos-main .product-art{height:62px;margin:0 0 5px;border-radius:6px}
+.pos-main .product-card>strong{font-size:12px;line-height:1.35;min-height:32px;overflow-wrap:anywhere}
+.pos-main .product-card .product-category{display:none}
+.pos-main .product-card b{font-size:13px}
+.pos-main .product-plus{width:23px;height:23px;border-radius:6px}
+.pos-main .product-plus svg{width:16px;height:16px}
+.pos-main .product-card.without-photo{min-height:138px;padding:12px}
+.pos-main .product-card.without-photo>strong{font-size:14px}
+.pos-main .product-qty{top:4px;inset-inline-end:4px;width:22px;height:22px;font-size:11px}
+.pos-main .cart{padding:18px;top:16px}
+.pos-main .cart-lines{max-height:calc(100dvh - 470px);min-height:120px;overflow-y:auto}
+.pos-main .cart-total strong{font-size:28px}
+.print-target{margin:14px 0;gap:8px}
+.sidebar nav{min-height:0;overflow-y:auto;flex-shrink:1}
+.sidebar-bottom{flex-shrink:0}
+@media(max-width:1000px){.pos-main .pos-layout{grid-template-columns:minmax(0,1fr) 280px}.balance-breakdown dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.pos-main .pos-layout{grid-template-columns:1fr}.pos-main .product-grid{max-height:none;grid-template-columns:repeat(3,minmax(0,1fr));padding:3px 0 8px}.pos-main .cart-lines{max-height:360px}.balance-toolbar,.balance-breakdown{padding:18px}.balance-filters{width:100%;gap:12px}.balance-filters label{flex:1;min-width:130px}.service-day{width:100%;justify-content:space-between}.balance-breakdown dd{font-size:19px}}
+@media(max-width:360px){.pos-main .product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pos-service-day{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.pos-service-day strong{color:var(--ink);margin-inline-start:6px}
+.pos-main .product-grid{max-height:calc(100dvh - 330px)}
+@media(max-width:700px){.pos-main .product-grid{max-height:none}}
