@@ -71,3 +71,25 @@ test('manager renames and deletes categories with product transfer and persists 
  const reopened=await openStore(store.db);
  assert.ok(!(await reopened.state(manager)).categories.some(category=>category.id===source.id));
 });
+
+test('adding an employee creates a cashier login atomically with the same name and cafe', async t => {
+ const {store,manager,cashier}=await setup(t);
+ const body={name:'Youssef',role:'Serveur',wage:120,username:'youssef',pin:'82736419'};
+ const before=await store.state(manager);
+ await assert.rejects(()=>store.action(cashier,'employee',body),error=>error.status===403);
+ await assert.rejects(()=>store.action(manager,'employee',{...body,pin:'abc'}));
+ await assert.rejects(()=>store.action(manager,'employee',{...body,username:'manager'}),error=>error.status===409);
+ assert.equal((await store.state(manager)).employees.length,before.employees.length);
+ await store.action(manager,'employee',{...body,account_role:'manager'});
+ const employee=(await store.state(manager)).employees.find(employee=>employee.name===body.name);
+ assert.equal(employee.wage,12000);
+ const user=await store.session(await store.login(body.username,body.pin));
+ assert.equal(user.role,'cashier');
+ assert.equal(user.name,body.name);
+ assert.equal(user.cafe_id,manager.cafe_id);
+ await assert.rejects(()=>store.action(user,'product-delete',{id:1}),error=>error.status===403);
+ await assert.rejects(()=>store.action(manager,'employee',body),error=>error.status===409);
+ const after=await store.state(manager);
+ assert.equal(after.employees.length,before.employees.length+1);
+ assert.equal(after.accounts.length,before.accounts.length+1);
+});

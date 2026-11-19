@@ -547,7 +547,11 @@ export default function App() {
     <label>{t('Confirmer le nouveau code')}<input name="confirm_pin" type="password" inputMode="numeric" pattern="[0-9]{4,12}" maxLength={12} autoComplete="new-password" required/></label>
     <p className="micro-note">{t('Le compte devra se reconnecter après le changement.')}</p>
  </>}
- {t(modal.type === 'account' && <><Field name="name" title={t("Nom de la personne")}/><Field name="username" title={t("Identifiant (unique)")}/><Field name="pin" title={t("Code d\u2019acc\u00E8s (4 \u00E0 12 chiffres)")} type="password"/><Field name="role" title={t("R\u00F4le")} value="cashier" options={[{ value: 'cashier', label: 'Caissier' }, { value: 'manager', label: 'Manager' }]}/><p className="micro-note">{t("Ce compte sera rattach\u00E9 uniquement \u00E0 ")}{t(s.user.cafe_name)}{t(".")}</p></>)}{t(modal.type === 'employee' && <><Field name="name" title={t("Nom de l\u2019employ\u00E9")}/><Field name="role" title={t("Fonction")}/><Field name="wage" title={t("Salaire journalier (DH)")} type="number"/></>)}
+ {t(modal.type === 'account' && <><Field name="name" title={t("Nom de la personne")}/><Field name="username" title={t("Identifiant (unique)")}/><Field name="pin" title={t("Code d\u2019acc\u00E8s (4 \u00E0 12 chiffres)")} type="password"/><Field name="role" title={t("R\u00F4le")} value="cashier" options={[{ value: 'cashier', label: 'Caissier' }, { value: 'manager', label: 'Manager' }]}/><p className="micro-note">{t("Ce compte sera rattach\u00E9 uniquement \u00E0 ")}{t(s.user.cafe_name)}{t(".")}</p></>)}{t(modal.type === 'employee' && <><Field name="name" title={t("Nom de l\u2019employ\u00E9")}/><Field name="role" title={t("Fonction")}/><Field name="wage" title={t("Salaire journalier (DH)")} type="number"/>
+ <Field name="username" title={t("Identifiant (unique)")}/>
+ <label>{t('Code d’accès (4 à 12 chiffres)')}<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,12}" maxLength={12} autoComplete="new-password" required/></label>
+ <p className="micro-note">{t('Un compte caissier sera créé automatiquement pour cet employé.')}</p>
+ </>)}
  {modal.type === 'inventory-delete' && <p>{t('Retirer cet article du stock ?')} <strong>{modal.item.name}</strong></p>}
  {modal.type === 'inventory' && <>
     {modal.item?.unit === 'sac' ? <p><strong>{t(modal.item.name)}</strong></p> : <Field name="name" title={t('Nom de l’article')} value={modal.item?.name}/>}
