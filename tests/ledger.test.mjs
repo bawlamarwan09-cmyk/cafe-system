@@ -157,3 +157,37 @@ test('manager can upload and replace inventory photos without changing stock',as
  current=(await store.state(manager)).inventory.find(stock=>stock.id===item.id);
  assert.equal(current.image_path,null);
 });
+
+test('purchase edits and deletion correct stock, costs and cash with stale and role checks',async t=>{
+ const {store,manager,cashier}=await setup(t);
+ const before=await store.state(manager);
+ const item=before.inventory.find(stock=>stock.unit==='unité');
+ const cash=await store.cashExpected(1,today(),0);
+ await store.action(manager,'movement',{kind:'purchase',inventory_id:item.id,quantity:10,amount:100,payment:'cash',label:'Achat test'});
+ const purchase=(await store.state(manager)).movements[0];
+ const request={id:purchase.id,expected:purchase,date:purchase.date,label:'Achat corrigé',quantity:8,amount:64};
+ await assert.rejects(()=>store.action(cashier,'purchase-edit',request),error=>error.status===403);
+ await store.action(manager,'purchase-edit',request);
+ let state=await store.state(manager);
+ assert.equal(state.inventory.find(stock=>stock.id===item.id).quantity,item.quantity+8);
+ assert.equal(state.inventory.find(stock=>stock.id===item.id).cost,800);
+ assert.equal(await store.cashExpected(1,today(),0),cash-6400);
+ await assert.rejects(()=>store.action(manager,'purchase-edit',request),error=>error.status===409);
+ const current=state.movements.find(movement=>movement.id===purchase.id);
+ await store.action(manager,'purchase-delete',{id:current.id,expected:current});
+ state=await store.state(manager);
+ assert.equal(state.inventory.find(stock=>stock.id===item.id).quantity,item.quantity);
+ assert.equal(await store.cashExpected(1,today(),0),cash);
+ assert.ok(!state.movements.some(movement=>movement.id===purchase.id));
+});
+
+test('a purchase correction rolls back if stock was used or its day is closed',async t=>{
+ const {store,manager}=await setup(t);
+ await store.action(manager,'movement',{kind:'purchase',inventory_id:1,quantity:1,amount:70,payment:'cash',label:'Khncha'});
+ const purchase=(await store.state(manager)).movements[0];
+ await store.db.exec('UPDATE inventory SET quantity=0 WHERE id=1');
+ await assert.rejects(()=>store.action(manager,'purchase-delete',{id:purchase.id,expected:purchase}),/consommée/);
+ assert.ok((await store.state(manager)).movements.some(movement=>movement.id===purchase.id));
+ await store.action(manager,'close',{opening:0,counted:0});
+ await assert.rejects(()=>store.action(manager,'purchase-edit',{id:purchase.id,expected:purchase,date:today(),label:'Correction',amount:80,quantity:1}),/clôturée/);
+});
