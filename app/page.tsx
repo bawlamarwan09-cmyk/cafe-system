@@ -158,6 +158,8 @@ function StockAlert({low, paused}: {low: Row[]; paused: boolean}) {
 }
 
 function StockPicture({item,products}:{item:Row;products:Row[]}) {
+    if(item.image_path)return <div className="stock-picture"><ProductPicture product={item}/></div>;
+    if(item.unit==='sac')return <div className="stock-picture"><ProductPicture product={{...item,image_path:'/stock/coffee.svg'}}/></div>;
     // Only a one-to-one recipe identifies the same stock item.
     const product=products.find(p=>stockBottleKeys.has(p.catalog_key)&&p.image_path&&Object.keys(p.recipe||{}).length===1&&Number(p.recipe?.[item.id])===1);
     return product ? <div className="stock-picture"><ProductPicture product={product}/></div> : null;
@@ -526,7 +528,7 @@ export default function App() {
                     }
                     if (type === 'inventory-delete') body = { id: modal.item.id };
                     if (type === 'product-delete') body = { id: modal.product.id };
-                    if (type === 'product') {
+                    if (type === 'product' || type === 'inventory') {
                         delete body.photo;
                         const photo = f.photo;
                         if (photo instanceof File && photo.size) {
@@ -542,7 +544,7 @@ export default function App() {
                             }
                         }
                         if (body.image_path === 'keep') delete body.image_path;
-                        body.id = modal.product?.id;
+                        body.id = type === 'product' ? modal.product?.id : modal.item?.id;
                     }
                     if (type === 'sack-close' || type === 'sack-assign' || type === 'cancel')
                         body.id = modal.id;
@@ -583,6 +585,12 @@ export default function App() {
     {modal.item ? <p>{t('Unité de stock')} · {t(modal.item.unit)}</p> : <Field name="unit" title={t('Unité de stock')} options={['unité','kg','litre','sac'].map(value=>({value,label:value}))}/>}
     <Field name="threshold" title={t('Seuil d’alerte')} type="number" min="0.01" value={modal.item?.threshold}/>
     <Field name="cost" title={t('Coût d’achat par unité (DH)')} type="number" value={modal.item ? modal.item.cost / 100 : undefined}/>
+    <Field name="image_path" title={t('Photo du produit')} required={false} value={modal.item?.image_path?'keep':''} options={[
+        ...(modal.item?.image_path?[{value:'keep',label:'Conserver la photo actuelle'}]:[]),
+        {value:'',label:'Illustration automatique'},
+    ]}/>
+    {modal.item && <StockPicture item={modal.item} products={s.products}/>}
+    <label>{t('Importer une photo (JPG, PNG, WebP)')}<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"/></label>
     {!modal.item && <p className="micro-note">{t('Stock initial : 0. Enregistrez ensuite un achat ou un ajustement.')}</p>}
  </>}
  {t(modal.type === 'movement' && <>{t(['salary', 'advance'].includes(modal.kind) && <Field name="kind" title={t("Type de paiement")} value={modal.kind} options={[{ value: 'advance', label: 'Avance sur salaire' }, { value: 'salary', label: 'Règlement de salaire' }]}/>)}<Field name="date" title={t("Date")} type="date" value={date}/>{t(modal.kind === 'expense' && <Field name="category" title={t("Cat\u00E9gorie")} options={['Dépenses du jour', 'Loyer', 'Électricité', 'Eau', 'Internet / abonnement', 'Nettoyage', 'Réparation', 'Autre'].map(x => ({ value: x, label: x }))}/>)}<Field name="label" title={t(modal.kind === 'purchase' ? 'Fournisseur / description de l’achat' : 'Description / motif')}/>{t(['purchase', 'adjustment'].includes(modal.kind) && <><Field name="inventory_id" title={t("Article")} value={modal.inventory_id} options={inventoryOptions} onChange={e=>setModal(current=>({...current,inventory_id:Number(e.target.value),purchase_unit:'unit'}))}/>{modal.kind==='purchase'&&s.inventory.some(item=>item.id===Number(modal.inventory_id)&&item.unit==='sac'&&item.name==='Khnchas café')&&<Field name="purchase_unit" key={modal.inventory_id} title={t('Conditionnement')} value="pack6" options={[{value:'pack6',label:'Lot de 6 khnchas (6 kg)'},{value:'unit',label:'Khncha de 1 kg'}]}/>}<Field name="quantity" title={t('Quantité')} type="number" min="0.001" step="0.001"/>{t(modal.kind === 'adjustment' && <Field name="direction" title={t("Sens du mouvement")} value="out" options={[{ value: 'out', label: 'Sortie — perte / casse' }, { value: 'in', label: 'Entrée — correction' }]}/>)}</>)}{t(modal.kind !== 'adjustment' && <Field name="amount" title={t("Montant total (DH)")} type="number" min="0.01"/>)}{t(['salary', 'advance'].includes(modal.kind) && <><Field name="employee_id" title={t("Employ\u00E9")} value={modal.employee_id} options={employeeOptions}/><p className="micro-note">{t("Saisissez uniquement le montant r\u00E9ellement vers\u00E9. Les avances d\u00E9j\u00E0 pay\u00E9es ne doivent pas \u00EAtre incluses une deuxi\u00E8me fois.")}</p></>)} {modal.kind!=='purchase'&&<Field name="payment" title={t("Mode de paiement")} value="cash" options={paymentOptions}/>}</>)}

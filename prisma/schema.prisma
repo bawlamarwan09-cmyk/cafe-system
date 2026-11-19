@@ -34,6 +34,7 @@ model attempts {
 }
 
 model inventory {
+  image_path String?
   id Int @id @default(autoincrement())
   cafe_id Int?
   name String?

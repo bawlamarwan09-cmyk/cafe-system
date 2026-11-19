@@ -130,3 +130,30 @@ test('each coffee consumes one water bottle, sans eau consumes none, and edits a
  await store.action(manager,'sack-close',{id:initial.sacks[0].id,reason:'Sac entièrement consommé'});
  assert.equal((await store.state(manager)).products.find(product=>product.id===coffee.id).available,false);
 });
+
+test('coffee sales remain possible when the Aquafina mapping is missing',async t=>{
+ const {store,manager}=await setup(t);
+ await store.action(manager,'sack-open',{});
+ await store.db.exec("UPDATE products SET recipe='{}' WHERE catalog_key='aquafina'");
+ assert.equal((await store.state(manager)).products.find(product=>product.id===1).available,true);
+ await store.action(manager,'order',{key:'missing-aquafina',payment:'cash',lines:[{id:1,qty:1}]});
+ assert.equal((await store.state(manager)).orders.length,1);
+});
+
+test('manager can upload and replace inventory photos without changing stock',async t=>{
+ const {store,manager,cashier}=await setup(t);
+ const {readFileSync}=await import('node:fs');
+ const photo='data:image/webp;base64,'+readFileSync(new URL('../public/products/coca-cola.webp',import.meta.url)).toString('base64');
+ const item=(await store.state(manager)).inventory[0];
+ const edit={id:item.id,name:item.name,threshold:item.threshold,cost:item.cost/100,image_path:photo};
+ await assert.rejects(()=>store.action(cashier,'inventory',edit),error=>error.status===403);
+ await store.action(manager,'inventory',edit);
+ await store.action(manager,'inventory',{...edit,image_path:undefined});
+ let current=(await store.state(manager)).inventory.find(stock=>stock.id===item.id);
+ assert.equal(current.image_path,photo);
+ assert.equal(current.quantity,item.quantity);
+ await assert.rejects(()=>store.action(manager,'inventory',{...edit,image_path:'https://example.com/image.png'}),/Photo/);
+ await store.action(manager,'inventory',{...edit,image_path:''});
+ current=(await store.state(manager)).inventory.find(stock=>stock.id===item.id);
+ assert.equal(current.image_path,null);
+});
