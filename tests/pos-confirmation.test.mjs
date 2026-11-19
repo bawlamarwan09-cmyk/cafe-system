@@ -15,7 +15,7 @@ test('POS review and cancel never save a sale; only final confirmation submits, 
  const waiter = (await store.state(manager)).employees[0];
  (await store.action(manager,'employee-order-pin',{employee_id:waiter.id,pin:'0471'}));
  const originalFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=originalFetch;});
- const values={0:(await store.state(user)),1:false,3:'pos',4:(await store.state(user)).today,7:{6:2},8:'cash',10:null};let index=0,tree,posts=0,release;
+ const values={0:(await store.state(user)),1:false,3:'pos',4:(await store.state(user)).today,7:{6:2},8:'cash',9:null};let index=0,tree,posts=0,release;
  const lock={current:false};const hold=new Promise(resolve=>{release=resolve;});
  globalThis.fetch=async(url,options)=>{
   if(options?.method==='POST'&&String(url).endsWith('/order')){posts++;const body=JSON.parse(options.body);await hold;const result=(await store.action(user,'order',body));return {ok:true,json:async()=>({ok:true,...result})};}
@@ -30,10 +30,11 @@ test('POS review and cancel never save a sale; only final confirmation submits, 
  const findInTree=predicate=>find(predicate,tree);
  const button=className=>findInTree(n=>n.type==='button'&&n.props.className?.includes(className));
  render();button('confirm-sale').props.onClick();let html=render();assert.equal(posts,0);assert.equal((await store.state(user)).orders.length,0);assert.match(html,/Vérifier la commande/);assert.match(html,/Eau minérale/);assert.match(html,/14 DH/);assert.match(html,/Espèces/);
- let actions=findInTree(n=>n.type==='div'&&n.props.className==='modal-actions');actions.props.children[0].props.onClick();render();assert.equal(values[10],null);assert.deepEqual(values[7],{6:2});assert.equal(posts,0);
+ let actions=findInTree(n=>n.type==='div'&&n.props.className==='modal-actions');actions.props.children[0].props.onClick();render();assert.equal(values[9],null);assert.deepEqual(values[7],{6:2});assert.equal(posts,0);
  button('confirm-sale').props.onClick();render();
  assert.equal(findInTree(n=>n.type==='div'&&n.props.className==='modal-actions').props.children[1].props.disabled,true);
- findInTree(n=>n.type==='select'&&n.props.value==='').props.onChange({target:{value:String(waiter.id)}});
+ assert.equal(findInTree(n=>n.type==='select'&&n.props.value===''),null);
+ findInTree(n=>n.type==='button'&&n.props.className?.startsWith('waiter-option ')).props.onClick();
  render();
  for(const digit of [0,4,7,1]){
   findInTree(n=>n.type==='button'&&n.props.children===(digit===0?'0':digit)).props.onClick();
@@ -41,5 +42,5 @@ test('POS review and cancel never save a sale; only final confirmation submits, 
  }
  render();
  actions=findInTree(n=>n.type==='div'&&n.props.className==='modal-actions');const confirm=actions.props.children[1].props.onClick;
- const first=confirm(),second=confirm();assert.equal(posts,1);assert.equal((await store.state(user)).orders.length,0);release();await Promise.all([first,second]);html=render();assert.equal((await store.state(user)).orders.length,1);assert.equal((await store.state(user)).orders[0].total,1400);assert.equal((await store.state(user)).orders[0].waiter_id,waiter.id);assert.equal((await store.state(user)).inventory.length,0);assert.equal(values[10].type,'receipt');assert.deepEqual(values[7],{});assert.match(html,/Ticket de commande/);
+ const first=confirm(),second=confirm();assert.equal(posts,1);assert.equal((await store.state(user)).orders.length,0);release();await Promise.all([first,second]);html=render();assert.equal((await store.state(user)).orders.length,1);assert.equal((await store.state(user)).orders[0].total,1400);assert.equal((await store.state(user)).orders[0].waiter_id,waiter.id);assert.equal((await store.state(user)).inventory.length,0);assert.equal(values[9].type,'receipt');assert.deepEqual(values[7],{});assert.match(html,/Ticket de commande/);
 });
