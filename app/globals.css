@@ -351,3 +351,10 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .product-sales-report table{min-width:600px;font-variant-numeric:tabular-nums}
 .product-sales-report tfoot th,.product-sales-report tfoot td{background:#ead7ac;border-top:2px solid #a58b61;font-weight:800}
 @media(max-width:700px){.product-sales-report{padding:18px}.product-sales-filters{width:100%}.product-sales-filters label{flex:1;min-width:130px}}
+.product-sales-report table{min-width:1100px}
+.product-sales-report td{vertical-align:top}
+.product-sales-report td:nth-child(2){white-space:nowrap}
+.product-sales-report .report-tickets{min-width:125px}
+.report-tickets summary{cursor:pointer;color:var(--gold-dark);font-weight:700;white-space:nowrap}
+.report-tickets>div{padding-top:10px;border-top:1px solid var(--border);margin-top:10px}
+.report-tickets small{display:block}
