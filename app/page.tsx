@@ -456,7 +456,7 @@ export default function App() {
                 ? {waiter_id: Number(modal.waiterId)}
                 : {};
             const r=await mutate('order',{...waiter,key,lines:cartLines.map((p:Row)=>({id:p.id,qty:p.qty})),payment:modal.payment,expected_total:cartTotal},false);
-            if(r){setCart({});setCustomer('');setOrderKey('');show('receipt',{id:r.id});if(typeof window!=='undefined'&&r.order){try{printReceipt(r.order);}catch{setToast('Commande enregistrée. Relancez l’impression depuis le reçu.');}}}
+            if(r){setCart({});setCustomer('');setOrderKey('');setModal(null);if(typeof window!=='undefined'&&r.order){try{printReceipt(r.order);}catch{setToast('Commande enregistrée. Relancez l’impression depuis le reçu.');}}}
         } finally { submittingOrder.current=false; }
     };
     const listOrders = s.orders.filter(o => (view === 'reports' ? o.date.startsWith(date.slice(0, 7)) : o.date === date) && (filter === 'all' || o.payment === filter) && (`${o.id} ${o.user_name} ${o.lines.map((l: Row) => l.name).join(' ')}`).toLowerCase().includes(query.toLowerCase()));
