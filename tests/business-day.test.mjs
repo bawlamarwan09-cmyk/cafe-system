@@ -13,9 +13,9 @@ test('service day survives midnight and reconnect; only manager closure advances
  assert.equal(order.order.date,serviceDate);assert.equal(order.order.created.slice(0,10),new Date().toISOString().slice(0,10));
  await assert.rejects(()=>store.action(cashier,'close',{opening:0,counted:7}),e=>e.status===403);
  assert.equal((await store.state(manager)).today,serviceDate);
- const closed=await store.action(manager,'close',{date:serviceDate,opening:0,counted:7});
+ const closed=await store.action(manager,'close',{date:serviceDate});
  assert.equal(closed.businessDate,today());
- const after=await store.state(manager);assert.equal(after.today,today());assert.equal(after.closings[0].expected,700);
+ const after=await store.state(manager);assert.equal(after.today,today());assert.equal(after.closings[0].expected,700);assert.equal(after.closings[0].counted,null);
  const next=await store.action(cashier,'order',{key:'next-service',payment:'cash',lines:[{id:6,qty:1}]});assert.equal(next.order.date,today());
  await assert.rejects(()=>store.action(manager,'movement',{date:serviceDate,kind:'expense',label:'Ancienne journée',amount:1,payment:'cash'}),/clôturée/);
  const retry=await store.action(cashier,'order',{key:'after-midnight',payment:'cash',lines:[{id:6,qty:1}]});assert.equal(retry.id,order.id);assert.equal(retry.order.date,serviceDate);
