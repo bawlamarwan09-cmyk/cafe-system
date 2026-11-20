@@ -358,3 +358,6 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .report-tickets summary{cursor:pointer;color:var(--gold-dark);font-weight:700;white-space:nowrap}
 .report-tickets>div{padding-top:10px;border-top:1px solid var(--border);margin-top:10px}
 .report-tickets small{display:block}
+.daily-sales-report table{min-width:700px}
+.article-sales-report table{min-width:600px}
+.article-sales-report td:nth-child(2){white-space:normal}
