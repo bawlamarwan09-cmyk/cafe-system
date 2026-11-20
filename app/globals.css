@@ -341,3 +341,13 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .sales-ledger td small{color:#5d4b30;line-height:1.7}
 .sales-ledger .ticket-link{font-weight:800}
 @media(max-width:700px){.sales-ledger th,.sales-ledger td{padding:13px 14px}.sales-ledger tbody td{font-size:13px}}
+
+.product-sales-report{padding:24px;margin-bottom:26px}
+.product-sales-heading{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:20px;margin-bottom:20px}
+.product-sales-heading>div:first-child{flex:1;min-width:220px}
+.product-sales-heading .micro-note{margin:10px 0 0;line-height:1.8}
+.product-sales-filters{display:flex;gap:14px;flex-wrap:wrap}
+.product-sales-filters label{min-width:150px}
+.product-sales-report table{min-width:600px;font-variant-numeric:tabular-nums}
+.product-sales-report tfoot th,.product-sales-report tfoot td{background:#ead7ac;border-top:2px solid #a58b61;font-weight:800}
+@media(max-width:700px){.product-sales-report{padding:18px}.product-sales-filters{width:100%}.product-sales-filters label{flex:1;min-width:130px}}
