@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation, LanguageSwitcher } from '../lib/i18n.mjs';
 import { additionalMenuPhotos, catalogProducts, coffeePhotos, stockBottleKeys } from '../lib/drink-catalog.mjs';
 import { menuNameKey, waterOptions } from '../lib/monalisa-menu.mjs';
+import {waiterSales} from '../lib/waiter-sales.mjs';
 import {productSales} from '../lib/product-sales.mjs';
 import {dailyBalance} from '../lib/daily-balance.mjs';
 import SackPerformanceChart from '../components/sack-performance-chart';
@@ -268,6 +269,15 @@ const Field = ({ name, title, type = 'text', value, options, required = true, st
     min?: string;
     onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
 }) => { const { t } = useTranslation(); return <label>{t(title)}{t(options ? <select name={name} defaultValue={value ?? ''} required={required} onChange={onChange}><option value="" disabled>{t("Choisir\u2026")}</option>{t(options.map(o => <option value={o.value} key={o.value}>{t(o.label)}</option>))}</select> : <input name={name} type={type} defaultValue={value} required={required} step={step || (type === 'number' ? '0.01' : undefined)} min={min ?? (type === 'number' ? '0' : undefined)}/>)}</label>; };
+function WaiterSalesReport({orders,date}:{orders:Row[];date:string}) {
+    const {t,number,money:euro,locale}=useTranslation();
+    const [period,setPeriod]=useState('day'),[selectedDate,setSelectedDate]=useState(date);
+    const report=waiterSales(orders,(day:string)=>period==='day'?day===selectedDate:day.startsWith(selectedDate.slice(0,7)));
+    return <section className="panel product-sales-report waiter-sales-report"><div className="product-sales-heading"><div><h2>{t('Ventes par serveur / caissier')}</h2><p className="micro-note">{t('Commandes confirmées uniquement. Montants des ventes avant achats et dépenses.')}</p></div><div className="product-sales-filters"><label>{t('Période')}<select value={period} onChange={e=>setPeriod(e.target.value)}><option value="day">{t('Par jour')}</option><option value="month">{t('Par mois')}</option></select></label><label>{t(period==='day'?'Date':'Mois')}<input type={period==='day'?'date':'month'} value={period==='day'?selectedDate:selectedDate.slice(0,7)} onChange={e=>{if(e.target.value)setSelectedDate(period==='day'?e.target.value:e.target.value+'-01');}}/></label></div></div>
+        <div className="table-wrap sales-ledger"><table><thead><tr>{['Date','Serveur / caissier','Nombre de commandes','Chiffre d’affaires','Espèces attendues des ventes'].map(label=><th key={label}>{t(label)}</th>)}</tr></thead><tbody>{report.rows.map((row:Row)=><tr key={row.key}><td>{new Date(row.date+'T12:00:00').toLocaleDateString(locale)}</td><td className="strong">{row.name||'—'}</td><td>{number(row.count)}</td><td>{euro(row.revenue)}</td><td className="strong">{euro(row.cash)}</td></tr>)}</tbody><tfoot><tr><th colSpan={2}>{t('Total')}</th><td>{number(report.count)}</td><td>{euro(report.revenue)}</td><td>{euro(report.cash)}</td></tr></tfoot></table></div>
+        {!report.rows.length&&<Empty text={t('Aucune opération pour cette période.')}/>}
+    </section>;
+}
 function ProductSalesReport({orders,products,movements,date,onDateChange}:{orders:Row[];products:Row[];movements:Row[];date:string;onDateChange:(date:string)=>void}) {
     const {t,number,money:euro,locale}=useTranslation();
     const [period,setPeriod]=useState('month');
@@ -281,7 +291,7 @@ function ProductSalesReport({orders,products,movements,date,onDateChange}:{order
     </section><section className="panel product-sales-report article-sales-report"><div className="product-sales-heading"><div><h2>{t('Ventes par article')}</h2><p className="micro-note">{t('Quantités vendues et commandes contenant chaque article. Les ventes annulées sont exclues.')}</p></div>{filters(articlePeriod,setArticlePeriod,articleDate,setArticleDate)}</div>
         <div className="table-wrap sales-ledger"><table><thead><tr>{['Article','Quantité vendue','Nombre de commandes','Chiffre d’affaires'].map(label=><th key={label}>{t(label)}</th>)}</tr></thead><tbody>{articles.rows.map((row:Row)=><tr key={row.id}><td className="strong">{t(row.name)}</td><td>{number(row.quantity)}</td><td>{number(row.orders)}</td><td>{euro(row.revenue)}</td></tr>)}</tbody><tfoot><tr><th>{t('Total')}</th><td>{number(articles.quantity)}</td><td>{number(articles.orders)} <small>{t('commandes distinctes')}</small></td><td>{euro(articles.revenue)}</td></tr></tfoot></table></div>
         {!articles.rows.length&&<Empty text={t('Aucun article pour cette période.')}/>}
-    </section></>;
+    </section><WaiterSalesReport orders={orders} date={date}/></>;
 }
 function DailyBalance({state,onClose,busy}:{state:State;onClose:()=>void;busy:boolean}) {
     const {t,money:euro,locale}=useTranslation();

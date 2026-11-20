@@ -361,3 +361,6 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
 .daily-sales-report table{min-width:700px}
 .article-sales-report table{min-width:600px}
 .article-sales-report td:nth-child(2){white-space:normal}
+.waiter-sales-report table{min-width:750px}
+.waiter-sales-report td:first-child{white-space:nowrap}
+.waiter-sales-report td:nth-child(2){white-space:normal}
