@@ -1,3 +1,4 @@
+import {actionStateSections} from '../lib/action-state.mjs';
 import {StoreError} from '../lib/store.mjs';
 import {testStore} from './postgres-fixture.mjs';
 import {test} from 'node:test';
@@ -16,7 +17,7 @@ test('API authentication → café data → sale → persisted response, without
  const transpile=source=>ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const jwt={exports:{}};
  Function('require','module','exports',transpile(jwtSource))(require,jwt,jwt.exports);
- Function('require','module','exports',transpile(source))(p=>p.endsWith('store.mjs')?{store:()=>store,StoreError}:p.endsWith('/session-jwt')?jwt.exports:require(p),module,module.exports);
+ Function('require','module','exports',transpile(source))(p=>p.endsWith('action-state.mjs')?{actionStateSections}:p.endsWith('store.mjs')?{store:()=>store,StoreError}:p.endsWith('/session-jwt')?jwt.exports:require(p),module,module.exports);
  const route=module.exports,origin='https://cafe-system-blush.vercel.app',upstream='https://api-cafe.example.test';let cookie='';
  const previousOrigin=process.env.MONALISA_ORIGIN;
  process.env.MONALISA_ORIGIN=origin;
@@ -55,5 +56,15 @@ test('API authentication → café data → sale → persisted response, without
  assert.equal((await post('sack-open',{})).status,200);
  const order=await post('order',{key:'ui-order',payment:'cash',lines:[{id:1,qty:2},{id:6,qty:1}]});assert.equal(order.status,200);const result=await order.json();assert.equal(result.id,1);
  const refreshed=await (await route.GET(new NextRequest(upstream+'/api/state',{headers:{cookie}}))).json();assert.equal(refreshed.orders[0].total,2900);assert.equal(refreshed.sacks[0].equivalents,2);assert.equal(refreshed.inventory.find(i=>i.id===2).quantity,45);
+ const saved=await post('receipt-settings',{title:'Ticket rapide',refresh:true,refresh_date:data.today});
+ assert.equal(saved.status,200);assert.match(saved.headers.get('server-timing'),/action;dur=/);
+ const patch=await saved.json();assert.equal(patch.state.receiptSettings.title,'Ticket rapide');assert.ok(!('products' in patch.state));assert.ok(!('orders' in patch.state));
+ const originalState=store.state,originalError=console.error;let refreshFailure;
+ store.state=async()=>{throw new Error('Simulated refresh failure');};console.error=(...args)=>{refreshFailure=args;};
+ try {
+  const committed=await post('receipt-settings',{title:'Still saved',refresh:true});
+  assert.equal(committed.status,200);assert.equal((await committed.json()).ok,true);
+ } finally {store.state=originalState;console.error=originalError;}
+ assert.ok(refreshFailure);assert.equal((await store.state((await store.session(jwt.exports.verifySession(cookie.slice('monalisa_session='.length)))))).receiptSettings.title,'Still saved');
  assert.equal((await post('logout',{})).status,200);assert.equal((await route.GET(new NextRequest(upstream+'/api/state',{headers:{cookie}}))).status,401);
 });

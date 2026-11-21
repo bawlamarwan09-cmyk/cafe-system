@@ -27,6 +27,9 @@ model sessions {
   token String @id
   user_id Int?
   expires BigInt?
+
+  @@index([user_id])
+  @@index([expires])
 }
 
 model attempts {
@@ -58,6 +61,8 @@ model products {
   active Int? @default(1)
   image_path String?
   catalog_key String?
+
+  @@index([cafe_id, catalog_key])
 }
 
 model sacks {
@@ -73,6 +78,8 @@ model sacks {
   weight_kg Float @default(1)
   barista_id Int?
   barista_name String?
+
+  @@index([cafe_id, status])
 }
 
 model customers {
@@ -99,6 +106,9 @@ model orders {
   cancel_reason String?
   revision Int @default(0)
   waiter_id Int?
+
+  @@index([cafe_id, id])
+  @@index([cafe_id, date, status])
 }
 
 model movements {
@@ -116,6 +126,8 @@ model movements {
   quantity Float?
   user_name String?
   created String?
+
+  @@index([cafe_id, date, kind])
 }
 
 model stock_moves {
@@ -126,6 +138,8 @@ model stock_moves {
   reason String?
   order_id Int?
   created String?
+
+  @@index([cafe_id, id])
 }
 
 model employees {
@@ -175,6 +189,8 @@ model order_events {
   created String?
   before_json String?
   after_json String?
+
+  @@index([cafe_id, id])
 }
 
 model employee_order_pins {

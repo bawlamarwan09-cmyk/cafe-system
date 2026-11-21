@@ -16,7 +16,7 @@ test('POS review and cancel never save a sale; only final confirmation submits, 
  (await store.action(manager,'employee-order-pin',{employee_id:waiter.id,pin:'0471'}));
  const originalFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=originalFetch;});
  const values={0:(await store.state(user)),1:false,3:'pos',4:(await store.state(user)).today,7:{6:2},8:'cash',9:null};let index=0,tree,posts=0,release;
- const lock={current:false};const hold=new Promise(resolve=>{release=resolve;});
+ const refs=[];let refIndex=0;const hold=new Promise(resolve=>{release=resolve;});
  let releaseRefresh;const refreshHold=new Promise(resolve=>{releaseRefresh=resolve;});t.after(()=>releaseRefresh());
  globalThis.fetch=async(url,options)=>{
   if(options?.method==='POST'&&String(url).endsWith('/order')){posts++;const body=JSON.parse(options.body);assert.equal(body.waiter_pin,undefined);await hold;const result=(await store.action(user,'order',body));return {ok:true,json:async()=>({ok:true,...result})};}
@@ -24,9 +24,9 @@ test('POS review and cancel never save a sale; only final confirmation submits, 
  };
  const require=createRequire(import.meta.url);const compile=file=>ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  const chart={exports:{}};Function('require','module','exports',compile('../components/sack-performance-chart.tsx'))(require,chart,chart.exports);
- const module={exports:{}},hooks={...React,useEffect:()=>{},useMemo:f=>f(),useRef:()=>lock,useState:initial=>{const n=index++;if(!(n in values))values[n]=initial;return [values[n],next=>{values[n]=typeof next==='function'?next(values[n]):next;}];}};
+ const module={exports:{}},hooks={...React,useEffect:()=>{},useMemo:f=>f(),useRef:initial=>{const n=refIndex++;return refs[n]??=( {current:initial} );},useState:initial=>{const n=index++;if(!(n in values))values[n]=initial;return [values[n],next=>{values[n]=typeof next==='function'?next(values[n]):next;}];}};
  Function('require','module','exports',compile('../app/page.tsx'))(p=>p==='react'?hooks:p==='../components/sack-performance-chart'?chart.exports:require(p),module,module.exports);
- function render(){index=0;function Harness(){tree=module.exports.default();return tree;}return renderToStaticMarkup(React.createElement(LanguageContext.Provider,{value:{language:'fr',setLanguage:()=>{}}},React.createElement(Harness)));}
+ function render(){index=0;refIndex=0;function Harness(){tree=module.exports.default();return tree;}return renderToStaticMarkup(React.createElement(LanguageContext.Provider,{value:{language:'fr',setLanguage:()=>{}}},React.createElement(Harness)));}
  function find(predicate,node){if(!node)return null;if(Array.isArray(node)){for(const child of node){const result=find(predicate,child);if(result)return result;}return null;}if(typeof node!=='object')return null;return predicate(node)?node:find(predicate,node.props?.children??null);}
  const findInTree=predicate=>find(predicate,tree);
  const button=className=>findInTree(n=>n.type==='button'&&n.props.className?.includes(className));

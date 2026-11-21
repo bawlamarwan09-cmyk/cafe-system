@@ -1,3 +1,4 @@
+import { actionStateSections } from '../../../lib/action-state.mjs';
 import { sessionMaxAge, signSession, verifySession } from '../../../lib/session-jwt';
 import { NextRequest, NextResponse } from 'next/server';
 import { store, StoreError } from '../../../lib/store.mjs';
@@ -7,8 +8,8 @@ export const dynamic = 'force-dynamic';
 
 const sessionCookie = 'monalisa_session';
 
-const response = (data: unknown, status = 200) =>
-  NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
+const response = (data: unknown, status = 200, timing?: string) =>
+  NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store', ...(timing ? { 'Server-Timing': timing } : {}) } });
 
 function failure(error: unknown) {
   if (error instanceof StoreError) return response({ error: error.status, message: error.message }, error.status);
@@ -22,13 +23,15 @@ function failure(error: unknown) {
 }
 
 export async function GET(req: NextRequest) {
+  const started = performance.now();
   try {
     const token = verifySession(req.cookies.get(sessionCookie)?.value);
     if (!token) return response({ error: 401, message: 'Votre session a expiré. Reconnectez-vous.' }, 401);
     const backend = await store();
     const user = await backend.session(token);
     if (!user) return response({ error: 401, message: 'Votre session a expiré. Reconnectez-vous.' }, 401);
-    return response(await backend.state(user, req.nextUrl.searchParams.get('date') || undefined));
+    const state = await backend.state(user, req.nextUrl.searchParams.get('date') || undefined);
+    return response(state, 200, `state;dur=${(performance.now()-started).toFixed(1)}`);
   } catch (error) {
     return failure(error);
   }
@@ -68,7 +71,20 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       result.cookies.delete(sessionCookie);
       return result;
     }
-    return response({ ok: true, ...await backend.action(user, path[0], body) });
+    const started = performance.now();
+    const saved = await backend.action(user, path[0], body);
+    const actionDuration = performance.now() - started;
+    let state;
+    const sections = body.refresh === true ? actionStateSections(path[0], body) : null;
+    if (sections) {
+      try { state = await backend.state(user, body.refresh_date || undefined, sections); }
+      catch (error) {
+        // The write already committed. Never report it as failed and invite a duplicate.
+        console.error('Monalisa state refresh failed after a saved action', error);
+      }
+    }
+    return response({ ok: true, ...saved, ...(state ? { state } : {}) }, 200,
+      `action;dur=${actionDuration.toFixed(1)}, refresh;dur=${(performance.now()-started-actionDuration).toFixed(1)}`);
   } catch (error) {
     return failure(error);
   }

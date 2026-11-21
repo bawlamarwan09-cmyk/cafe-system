@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation, LanguageSwitcher } from '../lib/i18n.mjs';
 import { additionalMenuPhotos, catalogProducts, coffeePhotos, stockBottleKeys } from '../lib/drink-catalog.mjs';
+import { createStateSync } from '../lib/state-sync.mjs';
 import { orderMenuProducts } from '../lib/menu-order.mjs';
 import { menuNameKey, waterOptions } from '../lib/monalisa-menu.mjs';
 import {waiterSales} from '../lib/waiter-sales.mjs';
@@ -194,12 +195,12 @@ async function api(path: string, body?: Row) {
         }
         const data = await response.json();
         const durationMs = Math.round(performance.now() - started);
-        if (durationMs >= 1000) console.info('[Monalisa API] Slow response', { method, url, status, durationMs });
+        if (durationMs >= 1000) console.info('[Monalisa API] Slow response', { method, status, durationMs });
         return data;
     } catch (error) {
         if (!(path.split('?')[0] === 'state' && status === 401)) {
             console.warn('[Monalisa API] Request failed', {
-                method, url, status, durationMs: Math.round(performance.now() - started),
+                method, status, durationMs: Math.round(performance.now() - started),
                 reason: status === undefined ? 'No HTTP response' : status < 400 ? 'Invalid response body' : 'HTTP error',
             });
         }
@@ -327,12 +328,14 @@ export default function App() {
     const prettyDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
     const [s, setS] = useState<State | null>(null), [loading, setLoading] = useState(true), [loginError, setLoginError] = useState(''), [view, setView] = useState('dashboard'), [date, setDate] = useState(''), [query, setQuery] = useState(''), [category, setCategory] = useState(''), [cart, setCart] = useState<Record<number, number>>({}), [customer, setCustomer] = useState(''), [modal, setModal] = useState<Row | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [toast, setToast] = useState(''), [menu, setMenu] = useState(false), [orderKey, setOrderKey] = useState(''), [filter, setFilter] = useState('all');
     const submittingOrder = useRef(false);
+    const mutating = useRef(false);
+    const preparingForm = useRef(false);
+    const stateSync = useRef(createStateSync());
     const lastCashierDateRequest = useRef<string | null>(null);
     const [printTarget,setPrintTarget]=useState('both');
     const refresh = async () => { try {
-        const j = await api('state' + (date ? '?date=' + date : ''));
-        setS(j);
-        setDate(d => d || j.today);
+        const key = 'state' + (date ? '?date=' + date : '');
+        await stateSync.current.read(key, () => api(key), (j: State) => { setS(j); setDate(d => d || j.today); });
     }
     catch (error) {
         if (errorNumber(error) === '401') setS(null);
@@ -344,8 +347,8 @@ export default function App() {
     } };
     useEffect(() => { refresh(); }, []);
     useEffect(() => { if (!s?.user.id)
-        return; const timer = setInterval(() => { if (document.visibilityState === 'visible')
-        api('state' + (date ? '?date=' + date : '')).then(setS).catch(() => { }); }, 15000); return () => clearInterval(timer); }, [s?.user.id, date]);
+        return; const timer = setInterval(() => { if (!busy && !stateSync.current.pending && document.visibilityState === 'visible')
+        void refresh(); }, 15000); return () => clearInterval(timer); }, [s?.user.id, date, busy]);
     useEffect(() => {
         if (!s?.user.id || manager) { lastCashierDateRequest.current = null; return; }
         if (!date) return;
@@ -354,7 +357,7 @@ export default function App() {
         lastCashierDateRequest.current = key;
         // Login already contains today's state; fetch only a changed consultation date.
         if (previous === key || (previous === null && date === s.today)) return;
-        api('state?date=' + date).then(setS).catch(() => { });
+        void refresh();
     }, [date, s?.user.id]);
     useEffect(() => { if (!modal)
         return; const previous = document.activeElement as HTMLElement; const frame = requestAnimationFrame(() => { const d = document.querySelector<HTMLElement>('[role=dialog]'); d?.querySelector<HTMLElement>('input,select,button')?.focus(); }); const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy)
@@ -378,9 +381,16 @@ export default function App() {
     useEffect(()=>{if(s&&!manager)setDate(s.today);},[s?.today,manager]);
     const navigate = (v: string) => { setView(v); setQuery(''); setFilter('all'); setMenu(false); };
     const show = (type: string, extra: Row = {}) => { setError(''); setModal({ type, ...extra }); };
-    const mutate = async (type: string, body: Row, close = true) => { setBusy(true); setError(''); try {
-        const result = await api(type, body);
-        if(type==='order' && result.order){
+    const mutate = async (type: string, body: Row, close = true) => {
+        if (mutating.current) return null;
+        mutating.current = true;
+        stateSync.current.invalidate();
+        setBusy(true); setError(''); try {
+        const result = await api(type, type==='order' ? body : {...body,refresh:true,refresh_date:date});
+        stateSync.current.invalidate();
+        if(result.state) {
+            setS(current=>current?{...current,...result.state}:current);
+        } else if(type==='order' && result.order){
             setS(current=>current?{...current,orders:[result.order,...current.orders.filter(order=>order.id!==result.order.id)]}:current);
             void refresh();
         } else await refresh();
@@ -396,6 +406,7 @@ export default function App() {
         return null;
     }
     finally {
+        mutating.current = false;
         setBusy(false);
     } };
     const metrics = useMemo(() => s ? totals(s, date) : null, [s, date]);
@@ -414,6 +425,7 @@ export default function App() {
     if (!s)
         return <main className="login-page"><div className="login-story"><span className="eyebrow">{t("LE SENS DU D\u00C9TAIL")}</span><h1>{t("Un bon caf\u00E9.")}<br />{t("Une gestion")}<br /><em>{t("en toute clart\u00E9.")}</em></h1><p>{t("Votre caisse, votre \u00E9quipe et vos comptes.")}<br />{t("Tout simplement, au m\u00EAme endroit.")}</p><div className="login-cup"><Coffee size={160} strokeWidth={.7}/></div><small>{t("MONALISA CAF\u00C9 \u00B7 VOTRE ESPACE DE GESTION")}</small></div><div className="login-panel"><div className="login-language"><LanguageSwitcher /></div><Brand /><h2>{t("Bienvenue au caf\u00E9")}</h2><p>{t("Connectez-vous \u00E0 votre espace.")}</p><form onSubmit={async (e) => { e.preventDefault(); setBusy(true); setLoginError(''); const f = new FormData(e.currentTarget); try {
             const result = await api('login', Object.fromEntries(f));
+            stateSync.current.invalidate();
             setS(result.state);
             setDate(result.state.today);
         }
@@ -521,7 +533,7 @@ export default function App() {
         section.className = 'cut';
         doc.body.append(section);
     } setTimeout(() => { try{frame.contentWindow?.focus();frame.contentWindow?.print();}catch{setToast('Commande enregistrée. Relancez l’impression depuis le reçu.');} }, 200); setTimeout(() => frame.remove(), 120000); };
-    return <div className="app-shell"><aside className={'sidebar ' + (menu ? 'open' : '')}><Brand /><div className="workspace"><span className="status-dot"/>{t(" Votre caf\u00E9, en direct")}</div><nav>{t(nav.filter(n => manager || ['dashboard', 'pos', 'sales'].includes(n[0])).map(([key, name, Icon]) => <button key={key} onClick={() => navigate(key)} className={view === key ? 'active' : ''}><Icon size={19} strokeWidth={1.6}/><span>{t(name)}</span>{t(key === 'stock' && low.length > 0 && <b className="nav-count">{t(low.length)}</b>)}</button>))}</nav><div className="sidebar-bottom"><div className="mini-coffee"><Coffee size={21}/></div><p>{t("Le go\u00FBt du travail bien fait.")}<small>{t("MONALISA \u00B7 GESTION CAF\u00C9")}</small></p><button className="logout" onClick={async () => { await api('logout', {}); setS(null); setCart({}); setView('dashboard'); setModal(null); }}><LogOut size={16}/>{t(" D\u00E9connexion")}</button></div></aside>{t(menu && <div className="sidebar-overlay" onClick={() => setMenu(false)}/>)}
+    return <div className="app-shell"><aside className={'sidebar ' + (menu ? 'open' : '')}><Brand /><div className="workspace"><span className="status-dot"/>{t(" Votre caf\u00E9, en direct")}</div><nav>{t(nav.filter(n => manager || ['dashboard', 'pos', 'sales'].includes(n[0])).map(([key, name, Icon]) => <button key={key} onClick={() => navigate(key)} className={view === key ? 'active' : ''}><Icon size={19} strokeWidth={1.6}/><span>{t(name)}</span>{t(key === 'stock' && low.length > 0 && <b className="nav-count">{t(low.length)}</b>)}</button>))}</nav><div className="sidebar-bottom"><div className="mini-coffee"><Coffee size={21}/></div><p>{t("Le go\u00FBt du travail bien fait.")}<small>{t("MONALISA \u00B7 GESTION CAF\u00C9")}</small></p><button className="logout" onClick={async () => { await api('logout', {}); stateSync.current.invalidate(); setS(null); setCart({}); setView('dashboard'); setModal(null); }}><LogOut size={16}/>{t(" D\u00E9connexion")}</button></div></aside>{t(menu && <div className="sidebar-overlay" onClick={() => setMenu(false)}/>)}
  <div className="main-shell"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" onClick={() => setMenu(!menu)} aria-label={t("Menu")}><Menu size={22}/></button><span>{t("Monalisa Caf\u00E9")}</span><ChevronRight size={13}/><strong>{t(selectedTitle)}</strong></div><div className="topbar-right"><LanguageSwitcher /><span className="local-badge"><span className="dot"/>{t(" D\u00E9monstration locale")}</span>{t(manager && <button className="notification icon-button" aria-label={t("Alertes stock")} onClick={() => { navigate('stock'); setToast(low.length ? `${low.length} article(s) en stock faible.` : 'Votre stock est à jour.'); }}><Bell size={19}/>{t(low.length > 0 && <i />)}</button>)}{s.orderWaiters?.length > 0 && <button className="button small" onClick={() => show('change-order-pin')}>{t('Mon PIN')}</button>}<div className="user-avatar">{t(s.user.name[0])}</div><div className="user-info"><strong>{t(s.user.name)}</strong><small>{t(manager ? 'Manager' : 'Caissier')}</small></div></div></header>
  <main className={'main-content ' + (view === 'pos' ? 'pos-main' : view === 'sacks' ? 'sacks-page' : '')}>
  {manager && <StockAlert key={s.user.id} low={low} paused={!!modal || busy}/>}
@@ -571,6 +583,10 @@ export default function App() {
 </div></fieldset>}
 <div className="modal-actions"><button type="button" className="button" disabled={busy} onClick={()=>setModal(null)}>{t('Modifier le panier')}</button><button type="button" className="button gold" disabled={busy || !cartLines.length || (!!s.orderWaiters?.length && !selectedWaiter)} onClick={submitOrder}>{busy?<LoaderCircle className="spin" size={17}/>:<Check size={17}/>} {t('Confirmer et enregistrer')}</button></div></> : modal.type === 'receipt' ? (() => { const o = s.orders.find(x => x.id === modal.id); return o ? <><ReceiptPreview settings={s.receiptSettings||{}} cafeName={s.user.cafe_name} order={o}/><div className="inline-info"><Printer size={17}/>{t("Impression selon le destinataire choisi · format 80 mm")}</div><label className="print-target">{t('Destinataire du reçu')}<select value={printTarget} onChange={e=>setPrintTarget(e.target.value)}><option value="client">{t('Client')}</option><option value="barman">{t('Barman')}</option><option value="both">{t('Client + barman')}</option></select></label><button className="button gold full" onClick={() => printReceipt(o)}><Printer size={17}/>{t(" Imprimer le reçu")}</button>{manager&&o.changes?.length>0&&<div className="order-change-log">{o.changes.map((change:Row,index:number)=><p key={index}><b>{t(change.kind==='edit'?'Modification':'Suppression')} · {change.user_name}</b><br/>{change.reason}<small>{new Date(change.created).toLocaleString(locale)}</small></p>)}</div>}{manager&&o.status==='confirmed'&&<button className="button full" onClick={()=>editOrder(o)}><Pencil size={17}/>{t('Modifier la commande')}</button>}{t(manager && o.status === 'confirmed' && <button className="text-button danger full center" onClick={() => show('cancel', { id: o.id, revision:o.revision })}><RotateCcw size={14}/>{t(" Annuler cette vente avec un motif")}</button>)}</> : <Empty />; })()  : <form onSubmit={async (e) => {
                     e.preventDefault();
+                    if (preparingForm.current) return;
+                    preparingForm.current = true;
+                    setBusy(true);
+                    try {
                     const f = Object.fromEntries(new FormData(e.currentTarget));
                     let body: Row = { ...f };
                     let type = modal.type;
@@ -617,6 +633,7 @@ export default function App() {
                     if (type === 'sack-close' || type === 'sack-assign' || type === 'cancel')
                         body.id = modal.id;
                     await mutate(type, body);
+                    } finally { preparingForm.current = false; setBusy(false); }
                 }}>
  {modal.type === 'change-order-pin' && <>
     <Field name="employee_id" title={t('Serveur de la commande')} options={s.orderWaiters.filter(w=>!w.locked).map(w=>({value:w.id,label:w.name}))}/>

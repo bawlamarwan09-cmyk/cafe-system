@@ -17,6 +17,12 @@ test('catalog photos are real bundled WebP files and only selected bottled drink
   assert.equal(photo.toString('ascii',0,4),'RIFF');assert.equal(photo.toString('ascii',8,12),'WEBP');
   const product=state.products.find(p=>p.catalog_key===item.key);assert.ok(product,item.name);assert.equal(product.image_path,item.image_path);
   assert.equal(product.equivalent,0);
+  // Nescafé includes a water bottle, as required for coffee served with water.
+  if(item.key==='nescafe'){
+   assert.equal(product.available,true);assert.equal(product.stock_tracked,true);
+   const aquafina=state.products.find(p=>p.catalog_key==='aquafina');
+   assert.deepEqual(product.recipe,aquafina.recipe);continue;
+  }
   if(!['coca-cola','hawai-tropical','sprite','poms','schweppes-tonic','schweppes-citron'].includes(item.key)){
    assert.equal(product.available,true);
    assert.equal(product.stock_tracked,false);
