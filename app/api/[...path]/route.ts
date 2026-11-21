@@ -50,8 +50,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     if (!body || typeof body !== 'object' || Array.isArray(body)) return response({ error: 400, message: 'Requête invalide. Vérifiez les informations saisies.' }, 400);
     if (isLogin) {
       const token = await backend.login(body.username, body.pin, String(body.username || '').toLowerCase());
-      const result = response({ ok: true });
-      result.cookies.set(sessionCookie, signSession(token), {
+      const signedToken = signSession(token);
+      const authenticatedUser = await backend.session(token);
+      if (!authenticatedUser) return response({ error: 401, message: 'Votre session a expiré. Reconnectez-vous.' }, 401);
+      const initialState = await backend.state(authenticatedUser);
+      const result = response({ ok: true, state: initialState });
+      result.cookies.set(sessionCookie, signedToken, {
         httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production',
         maxAge: sessionMaxAge, path: '/',
       });

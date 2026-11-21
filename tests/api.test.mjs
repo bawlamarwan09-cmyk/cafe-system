@@ -26,6 +26,7 @@ test('API authentication → café data → sale → persisted response, without
  assert.equal((await post('product',{name:'Sans session'})).status,401);
  const cashierLogin=await post('login',{username:'caisse',pin:'1234'});
  assert.equal(cashierLogin.status,200);
+ const cashierData=await cashierLogin.json();assert.equal(cashierData.state.user.role,'cashier');assert.deepEqual(cashierData.state.inventory,[]);assert.ok(!('pin' in cashierData.state.user));
  cookie=cashierLogin.headers.get('set-cookie').split(';')[0];
  assert.equal((await post('product',{name:'Interdit'})).status,403);
  assert.equal((await post('product-delete',{id:1})).status,403);
@@ -34,7 +35,7 @@ test('API authentication → café data → sale → persisted response, without
  cookie='';
  assert.equal((await post('login',{username:'manager',pin:'2026'},'https://untrusted.example')).status,403);
  const denied=await post('login',{username:'manager',pin:'wrong'});assert.equal(denied.status,401);assert.deepEqual(await denied.json(),{error:401,message:'Identifiant ou code incorrect.'});
- const login=await post('login',{username:'manager',pin:'2026'});assert.equal(login.status,200);cookie=login.headers.get('set-cookie').split(';')[0];assert.match(login.headers.get('set-cookie'),/HttpOnly/i);assert.deepEqual(await login.json(),{ok:true});
+ const login=await post('login',{username:'manager',pin:'2026'});assert.equal(login.status,200);cookie=login.headers.get('set-cookie').split(';')[0];assert.match(login.headers.get('set-cookie'),/HttpOnly/i);const loginData=await login.json();assert.equal(loginData.ok,true);assert.equal(loginData.state.user.role,'manager');assert.equal(loginData.state.products.length,110);assert.ok(!('pin' in loginData.state.user));assert.equal(loginData.state.today.length,10);
  const managerCookie=cookie;
  const [jwtHeader,jwtPayload,jwtSignature]=cookie.slice('monalisa_session='.length).split('.');
  const claims=JSON.parse(Buffer.from(jwtPayload,'base64url').toString('utf8'));

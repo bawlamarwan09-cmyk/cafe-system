@@ -327,6 +327,7 @@ export default function App() {
     const prettyDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
     const [s, setS] = useState<State | null>(null), [loading, setLoading] = useState(true), [loginError, setLoginError] = useState(''), [view, setView] = useState('dashboard'), [date, setDate] = useState(''), [query, setQuery] = useState(''), [category, setCategory] = useState(''), [cart, setCart] = useState<Record<number, number>>({}), [customer, setCustomer] = useState(''), [modal, setModal] = useState<Row | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [toast, setToast] = useState(''), [menu, setMenu] = useState(false), [orderKey, setOrderKey] = useState(''), [filter, setFilter] = useState('all');
     const submittingOrder = useRef(false);
+    const lastCashierDateRequest = useRef<string | null>(null);
     const [printTarget,setPrintTarget]=useState('both');
     const refresh = async () => { try {
         const j = await api('state' + (date ? '?date=' + date : ''));
@@ -345,8 +346,16 @@ export default function App() {
     useEffect(() => { if (!s?.user.id)
         return; const timer = setInterval(() => { if (document.visibilityState === 'visible')
         api('state' + (date ? '?date=' + date : '')).then(setS).catch(() => { }); }, 15000); return () => clearInterval(timer); }, [s?.user.id, date]);
-    useEffect(() => { if (s && date && !manager)
-        api('state?date=' + date).then(setS).catch(() => { }); }, [date, s?.user.id]);
+    useEffect(() => {
+        if (!s?.user.id || manager) { lastCashierDateRequest.current = null; return; }
+        if (!date) return;
+        const key = s.user.id + ':' + date;
+        const previous = lastCashierDateRequest.current;
+        lastCashierDateRequest.current = key;
+        // Login already contains today's state; fetch only a changed consultation date.
+        if (previous === key || (previous === null && date === s.today)) return;
+        api('state?date=' + date).then(setS).catch(() => { });
+    }, [date, s?.user.id]);
     useEffect(() => { if (!modal)
         return; const previous = document.activeElement as HTMLElement; const frame = requestAnimationFrame(() => { const d = document.querySelector<HTMLElement>('[role=dialog]'); d?.querySelector<HTMLElement>('input,select,button')?.focus(); }); const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy)
         setModal(null); if (e.key === 'Tab') {
@@ -404,8 +413,9 @@ export default function App() {
         return <div className="loading"><Brand /><LoaderCircle className="spin"/><p>{t("Ouverture de votre caf\u00E9\u2026")}</p></div>;
     if (!s)
         return <main className="login-page"><div className="login-story"><span className="eyebrow">{t("LE SENS DU D\u00C9TAIL")}</span><h1>{t("Un bon caf\u00E9.")}<br />{t("Une gestion")}<br /><em>{t("en toute clart\u00E9.")}</em></h1><p>{t("Votre caisse, votre \u00E9quipe et vos comptes.")}<br />{t("Tout simplement, au m\u00EAme endroit.")}</p><div className="login-cup"><Coffee size={160} strokeWidth={.7}/></div><small>{t("MONALISA CAF\u00C9 \u00B7 VOTRE ESPACE DE GESTION")}</small></div><div className="login-panel"><div className="login-language"><LanguageSwitcher /></div><Brand /><h2>{t("Bienvenue au caf\u00E9")}</h2><p>{t("Connectez-vous \u00E0 votre espace.")}</p><form onSubmit={async (e) => { e.preventDefault(); setBusy(true); setLoginError(''); const f = new FormData(e.currentTarget); try {
-            await api('login', Object.fromEntries(f));
-            await refresh();
+            const result = await api('login', Object.fromEntries(f));
+            setS(result.state);
+            setDate(result.state.today);
         }
         catch (err) {
             setLoginError(errorMessage(err));
