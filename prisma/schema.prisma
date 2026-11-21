@@ -129,6 +129,8 @@ model stock_moves {
 }
 
 model employees {
+  archived Int @default(0)
+  user_id Int? @unique
   id Int @id @default(autoincrement())
   cafe_id Int?
   name String?

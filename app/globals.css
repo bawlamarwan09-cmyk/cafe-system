@@ -408,3 +408,5 @@ input,select{font-weight:600}input::placeholder{color:#74644b;font-weight:500}
  .order-review-modal .cart-print-options label{font-size:12px}
  .order-review-modal .modal-actions{gap:8px}
 }
+
+.employee-management-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.employee-management-actions .button{flex:1;justify-content:center;min-height:40px}
