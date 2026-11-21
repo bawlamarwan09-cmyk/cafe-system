@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation, LanguageSwitcher } from '../lib/i18n.mjs';
 import { additionalMenuPhotos, catalogProducts, coffeePhotos, stockBottleKeys } from '../lib/drink-catalog.mjs';
+import { orderMenuProducts } from '../lib/menu-order.mjs';
 import { menuNameKey, waterOptions } from '../lib/monalisa-menu.mjs';
 import {waiterSales} from '../lib/waiter-sales.mjs';
 import {productSales} from '../lib/product-sales.mjs';
@@ -427,7 +428,7 @@ export default function App() {
     const menuCategories = s.categories.map(category => category.name);
     const activeCategory = menuCategories.includes(category) ? category : menuCategories[0] || '';
     const categoryOptions = menuCategories.map(name => ({value: name, label: name}));
-    const products = s.products.filter(p => !withWaterByVariant.has(p.id) && p.category === activeCategory);
+    const products = orderMenuProducts(s.products.filter(p => !withWaterByVariant.has(p.id) && p.category === activeCategory));
     const cartLines: Row[] = Object.entries(cart).flatMap(([id, qty]) => { const p = s.products.find(p => p.id === Number(id)); return p ? [{ ...p, qty }] : []; });
     const cartTotal = cartLines.reduce((a, p) => a + p.price * p.qty, 0);
     const add = (id: number, delta = 1) => { setOrderKey(''); setCart(old => { const copy = { ...old, [id]: Math.min(100, (old[id] || 0) + delta) }; if (copy[id] <= 0)
